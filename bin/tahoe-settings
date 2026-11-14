@@ -373,7 +373,7 @@ def pane_wifi():
                 toast('Bağlandı' if out and 'successfully' in out.lower() else (out or 'Bağlanılamadı')[:80]); refresh()
         toast(f'“{ssid}” bağlanıyor…'); bg(work, done)
     def refresh():
-        def work(): return sh('nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list', 20)
+        def work(): return sh('nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list --rescan no', 20)
         def done(out):
             clear_group(g2, rows); rows.clear()
             seen = {}
@@ -396,6 +396,8 @@ def pane_wifi():
     g3.add(r_button('Ağları yeniden tara', 'Tara', lambda: (bg_run('nmcli dev wifi rescan'), GLib.timeout_add(2500, lambda: (refresh(), False)[1]))))
     g3.add(r_button('Gelişmiş ağ ayarları', 'Aç…', lambda: bg_run('nm-connection-editor'), 'Kayıtlı ağlar, VPN, statik IP'))
     refresh()
+    if on:
+        bg_run('nmcli dev wifi rescan'); GLib.timeout_add(3000, lambda: (refresh(), False)[1])
     return new_page(g1, g2, g3)
 
 def pane_bluetooth():
@@ -980,6 +982,7 @@ button.cc-row:hover {{ background-color: rgba({ov},0.08); }}
 .cc-circle {{ border-radius: 999px; background-color: rgba({ov},0.18); background-image: none; border: none; box-shadow: none; min-width: 36px; min-height: 36px; padding: 0; color: {fg}; }}
 .cc-circle.on {{ background-color: {acc}; color: #fff; }}
 .cc-title {{ font-weight: 700; font-size: 13px; }}
+.cc-title-lg {{ font-weight: 700; font-size: 15px; }}
 .cc-sub {{ font-size: 12px; opacity: 0.62; }}
 .cc-tile-t {{ font-size: 12px; font-weight: 500; }}
 scale.cc-slider {{ min-height: 28px; padding: 0; }}
@@ -1097,7 +1100,6 @@ class ControlCenter(Gtk.ApplicationWindow):
     # ── arayüz ──
     def build_ui(self, D):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        outer.add_css_class('tahoe-cc-box')
 
         def circle(icon, active):
             img = Gtk.Image.new_from_icon_name(icon); img.set_pixel_size(18)
@@ -1130,7 +1132,8 @@ class ControlCenter(Gtk.ApplicationWindow):
         pb, self.pc, self.ps = row('power-profile-balanced-symbolic', 'Güç Modu', '', False)
         self.profs = ['power-saver', 'balanced', 'performance']; self.pnames = ['Tasarruf', 'Dengeli', 'Performans']
         self.picons = ['power-profile-power-saver-symbolic', 'power-profile-balanced-symbolic', 'power-profile-performance-symbolic']
-        wb.connect('clicked', lambda *_: self.wifi_toggle())
+        wb.connect('clicked', lambda *_: self.open_wifi())
+        _ch = Gtk.Image.new_from_icon_name('go-next-symbolic'); _ch.set_pixel_size(14); _ch.set_opacity(0.6); _ch.set_valign(Gtk.Align.CENTER); wb.get_child().append(_ch)
         bb.connect('clicked', lambda *_: self.bt_toggle())
         pb.connect('clicked', lambda *_: self.prof_cycle())
         for b in (wb, bb, pb): left.append(b)
@@ -1178,7 +1181,151 @@ class ControlCenter(Gtk.ApplicationWindow):
         self.np_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         outer.append(self.np_box)
         self.apply_state(D)
-        return outer
+        self.stack = Gtk.Stack(); self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT); self.stack.set_transition_duration(160)
+        self.stack.set_vhomogeneous(False); self.stack.set_interpolate_size(True); self.stack.set_hexpand(True)
+        self.stack.add_named(outer, 'main'); self.stack.add_named(self.build_wifi_view(), 'wifi')
+        root = Gtk.Box(); root.add_css_class('tahoe-cc-box'); root.append(self.stack)
+        return root
+
+    # ───────────── Wi-Fi alt görünümü (macOS: Wi-Fi'ye basınca ağ listesi açılır) ─────────────
+    def build_wifi_view(self):
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        head = Gtk.Box(spacing=8)
+        back = Gtk.Button(icon_name='go-previous-symbolic'); back.add_css_class('cc-media'); back.set_focusable(False)
+        back.connect('clicked', lambda *_: self.show_main())
+        title = Gtk.Label(label='Wi-Fi', xalign=0, hexpand=True); title.add_css_class('cc-title-lg')
+        self.wspin = Gtk.Spinner()
+        self.wsw = Gtk.Switch(valign=Gtk.Align.CENTER); self.wsw.connect('notify::active', self.on_wifi_switch)
+        for w in (back, title, self.wspin, self.wsw): head.append(w)
+        v.append(head)
+
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL); card.add_css_class('cc-card')
+        sc = Gtk.ScrolledWindow(); sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sc.set_propagate_natural_height(True); sc.set_max_content_height(320); sc.set_min_content_height(80)
+        self.wlist = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        sc.set_child(self.wlist); card.append(sc); v.append(card)
+
+        # Parola isteği (satır içi)
+        self.pwbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6); self.pwbox.add_css_class('cc-card'); self.pwbox.set_visible(False)
+        self.pwlabel = Gtk.Label(label='', xalign=0, wrap=True); self.pwlabel.add_css_class('cc-title'); self.pwbox.append(self.pwlabel)
+        pr = Gtk.Box(spacing=8)
+        self.pwentry = Gtk.PasswordEntry(show_peek_icon=True, hexpand=True, placeholder_text='Parola')
+        self.pwbtn = Gtk.Button(label='Bağlan'); self.pwbtn.add_css_class('suggested-action')
+        self.pwentry.connect('activate', lambda *_: self.submit_pw()); self.pwbtn.connect('clicked', lambda *_: self.submit_pw())
+        pr.append(self.pwentry); pr.append(self.pwbtn); self.pwbox.append(pr); v.append(self.pwbox)
+        self.pw_ssid = None
+
+        foot = Gtk.Button(label='Wi-Fi Ayarları…'); foot.add_css_class('cc-card'); foot.add_css_class('cc-tilebtn'); foot.set_focusable(False)
+        foot.connect('clicked', lambda *_: (self.daemon.hide(), bg_run('tahoe-settings --pane wifi')))
+        v.append(foot)
+        self._scan_id = 0
+        return v
+
+    def show_main(self):
+        self.pwbox.set_visible(False); self.pw_ssid = None; self.wspin.stop()
+        self.stack.set_visible_child_name('main')
+
+    def reset_view(self):
+        self.stack.set_visible_child_full('main', Gtk.StackTransitionType.NONE)
+        self.pwbox.set_visible(False); self.pw_ssid = None; self.wspin.stop(); self.pwentry.set_text('')
+
+    def open_wifi(self):
+        """Wi-Fi'ye basılınca: listeyi hemen önbellekten göster, taramayı BU anda başlat."""
+        self._upd = True; self.wsw.set_active(self.st['wifi']); self._upd = False
+        self.stack.set_visible_child_name('wifi')
+        self.refresh_wifi_list()
+        if self.st['wifi']:
+            self.wspin.start(); self._scan_id += 1; sid = self._scan_id
+            def scan():
+                sh('nmcli dev wifi rescan', 6); time.sleep(2.5); return sid
+            def done(s):
+                if s == self._scan_id: self.wspin.stop(); self.refresh_wifi_list()
+            bg(scan, done)
+
+    def on_wifi_switch(self, sw, _):
+        if self._upd: return
+        on = sw.get_active(); self.st['wifi'] = on; self._on(self.wc, on); self.ws.set_text('Açılıyor…' if on else 'Kapalı')
+        if not on: self.fill_wifi_list('', off=True)
+        def work():
+            sh(f'nmcli radio wifi {"on" if on else "off"}')
+            if on: time.sleep(2.0); sh('nmcli dev wifi rescan', 6); time.sleep(2.5)
+            return on
+        if on: self.wspin.start()
+        def done(_r):
+            self.wspin.stop(); self.refresh_wifi_list()
+            self.ws.set_text(self.cur_ssid() or ('Bağlı değil' if self.st['wifi'] else 'Kapalı'))
+        bg(work, done)
+
+    @staticmethod
+    def cur_ssid():
+        return sh("LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi list --rescan no | grep '^yes' | head -1 | cut -d: -f2")
+
+    def refresh_wifi_list(self):
+        if not self.st['wifi']: self.fill_wifi_list('', off=True); return
+        bg(lambda: sh('LC_ALL=C nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list --rescan no', 8), lambda out: self.fill_wifi_list(out or ''))
+
+    def fill_wifi_list(self, out, off=False):
+        while True:
+            c = self.wlist.get_first_child()
+            if c is None: break
+            self.wlist.remove(c)
+        if off:
+            l = Gtk.Label(label='Wi-Fi kapalı', margin_top=24, margin_bottom=24); l.add_css_class('cc-sub'); self.wlist.append(l); return
+        seen = {}
+        for ln in out.split('\n'):
+            f = re.split(r'(?<!\\):', ln)
+            if len(f) < 4 or not f[1]: continue
+            ssid = f[1].replace('\\:', ':')
+            cur = {'inuse': f[0] == '*', 'sig': int(f[2] or 0), 'sec': f[3].strip()}
+            if ssid not in seen or cur['inuse'] or (not seen[ssid]['inuse'] and seen[ssid]['sig'] < cur['sig']): seen[ssid] = cur
+        if not seen:
+            l = Gtk.Label(label='Ağ bulunamadı', margin_top=24, margin_bottom=24); l.add_css_class('cc-sub'); self.wlist.append(l); return
+        for ssid, c in sorted(seen.items(), key=lambda kv: (not kv[1]['inuse'], -kv[1]['sig']))[:30]:
+            b = Gtk.Button(); b.add_css_class('cc-row'); b.set_focusable(False)
+            h = Gtk.Box(spacing=10, margin_start=4, margin_end=4)
+            chk = Gtk.Image.new_from_icon_name('object-select-symbolic' if c['inuse'] else 'image-missing'); chk.set_pixel_size(16)
+            if not c['inuse']: chk.set_opacity(0)
+            lab = Gtk.Label(label=ssid, xalign=0, hexpand=True, ellipsize=3); lab.add_css_class('cc-title')
+            h.append(chk); h.append(lab)
+            if c['sec'] and c['sec'] != '--':
+                lk = Gtk.Image.new_from_icon_name('channel-secure-symbolic'); lk.set_pixel_size(14); lk.set_opacity(0.7); h.append(lk)
+            lvl = 'excellent' if c['sig'] > 75 else 'good' if c['sig'] > 50 else 'ok' if c['sig'] > 25 else 'weak'
+            sg = Gtk.Image.new_from_icon_name(f'network-wireless-signal-{lvl}-symbolic'); sg.set_pixel_size(16); h.append(sg)
+            b.set_child(h)
+            if not c['inuse']: b.connect('clicked', lambda _b, s=ssid, sec=c['sec']: self.connect_ssid(s, sec))
+            self.wlist.append(b)
+
+    def connect_ssid(self, ssid, sec):
+        self.pwbox.set_visible(False); self.wspin.start()
+        q = ssid.replace("'", "'\\''")
+        def work(): return sh(f"LC_ALL=C nmcli dev wifi connect '{q}'", 40)
+        def done(out):
+            self.wspin.stop(); out = out or ''
+            if 'successfully' in out.lower():
+                self.ws.set_text(ssid); self.refresh_wifi_list()
+            elif sec and sec != '--' and ('secrets' in out.lower() or 'password' in out.lower() or 'no key' in out.lower() or not out):
+                self.ask_pw(ssid)
+            else:
+                self.ask_pw(ssid, err=out.split('\n')[-1][:80] if out else 'Bağlanılamadı') if (sec and sec != '--') else self.refresh_wifi_list()
+        bg(work, done)
+
+    def ask_pw(self, ssid, err=None):
+        self.pw_ssid = ssid; self.pwlabel.set_text(f'“{ssid}” için parola' + (f'\n{err}' if err else ''))
+        self.pwentry.set_text(''); self.pwbox.set_visible(True); self.pwentry.grab_focus()
+
+    def submit_pw(self):
+        if not self.pw_ssid: return
+        ssid, pw = self.pw_ssid, self.pwentry.get_text()
+        if not pw: return
+        q = ssid.replace("'", "'\\''"); pq = pw.replace("'", "'\\''")
+        self.wspin.start(); self.pwbtn.set_sensitive(False)
+        def done(out):
+            self.wspin.stop(); self.pwbtn.set_sensitive(True)
+            if out and 'successfully' in out.lower():
+                self.pwbox.set_visible(False); self.pw_ssid = None; self.ws.set_text(ssid); self.refresh_wifi_list()
+            else:
+                self.ask_pw(ssid, err=(out.split('\n')[-1][:80] if out else 'Bağlanılamadı'))
+        bg(lambda: sh(f"LC_ALL=C nmcli dev wifi connect '{q}' password '{pq}'", 40), done)
 
     # ── eylemler ──
     def wifi_toggle(self):
@@ -1316,7 +1463,7 @@ class CCDaemon:
         if LS_OK:
             for c in self.catchers.values():
                 Gtk4LayerShell.set_margin(c, Gtk4LayerShell.Edge.TOP, bar_h); c.present()
-        panel.present(); self.label = label; self.opened = time.time()
+        panel.reset_view(); panel.present(); self.label = label; self.opened = time.time()
         bg(fetch_state, lambda D: panel.apply_state(D) if (D and panel.get_visible()) else None)
 
     def hide(self):
