@@ -8,14 +8,14 @@
 
   "clock#apple": { "format": "\uf179", "tooltip-format": "Apple menüsü", "on-click": "tahoe-apple-menu" },
   "clock#spotlight": { "format": "\uf002", "tooltip-format": "Spotlight Araması", "on-click": "rofi -show drun" },
-  "clock#control": { "format": "\uf1de", "tooltip-format": "Denetim Merkezi", "on-click": "tahoe-settings --control-center --from control" },
+  "clock#control": { "format": "\uf1de", "tooltip-format": "Denetim Merkezi", "on-click": "tahoe-cc control" },
   "clock#notif": { "format": "\uf0f3", "tooltip-format": "Bildirim Merkezi", "on-click": "swaync-client -t -sw" },
   "clock#time": { "locale": "tr_TR.utf8", "format": "{:L%a %e %b  %H:%M}", "tooltip-format": "<tt>{calendar}</tt>", "on-click": "swaync-client -t -sw" },
   "hyprland/window": { "format": "{class}", "max-length": 40, "separate-outputs": true, "rewrite": { "": "Finder", "^org\\.tahoe\\.Settings$": "Sistem Ayarları", "^org\\.tahoe\\.ControlCenter$": "Denetim Merkezi", "^kitty$": "Terminal", "^(firefox|zen)$": "Safari", "^org\\.kde\\.dolphin$": "Finder", "^dolphin$": "Finder", "^pavucontrol$": "Ses Denetimi" }, "on-click": "tahoe-app-menu" },
   "hyprland/workspaces": { "format": "{icon}", "format-icons": { "active": "", "default": "" }, "persistent-workspaces": { "*": 4 }, "on-click": "activate" },
 
-  "battery": { "format": "{capacity}% <span font='JetBrainsMono NFM 15'>{icon}</span>", "format-charging": "{capacity}% <span font='JetBrainsMono NFM 15'>\uf0e7</span>", "format-icons": ["\uf244","\uf243","\uf242","\uf241","\uf240"], "tooltip-format": "{timeTo}", "on-click": "tahoe-settings --control-center --from battery", "on-click-right": "tahoe-settings --pane battery" },
-  "network": { "format-wifi": "", "format-ethernet": "", "format-disconnected": "", "tooltip-format": "{essid}  {signalStrength}%", "on-click": "tahoe-settings --control-center --from wifi", "on-click-right": "tahoe-settings --pane wifi" },
-  "pulseaudio": { "format": "{icon}", "format-muted": "", "format-icons": { "default": ["","",""] }, "on-click": "tahoe-settings --control-center --from sound", "on-click-right": "tahoe-settings --pane sound", "scroll-step": 5 },
+  "battery": { "format": "{capacity}% <span font='JetBrainsMono NFM 15'>{icon}</span>", "format-charging": "{capacity}% <span font='JetBrainsMono NFM 15'>\uf0e7</span>", "format-icons": ["\uf244","\uf243","\uf242","\uf241","\uf240"], "tooltip-format": "{timeTo}", "on-click": "tahoe-cc battery", "on-click-right": "tahoe-settings --pane battery" },
+  "network": { "format-wifi": "", "format-ethernet": "", "format-disconnected": "", "tooltip-format": "{essid}  {signalStrength}%", "on-click": "tahoe-cc wifi", "on-click-right": "tahoe-settings --pane wifi" },
+  "pulseaudio": { "format": "{icon}", "format-muted": "", "format-icons": { "default": ["","",""] }, "on-click": "tahoe-cc sound", "on-click-right": "tahoe-settings --pane sound", "scroll-step": 5 },
   "tray": { "spacing": 4, "icon-size": 18 }
 }

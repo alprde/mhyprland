@@ -1,0 +1,12 @@
+#!/bin/sh
+# Denetim Merkezi tetikleyici: çalışan daemon'a sinyal gönderir (milisaniyeler içinde); yoksa başlatır.
+# Kullanım: tahoe-cc [wifi|sound|battery|control]
+RT="${XDG_RUNTIME_DIR:-/tmp}"
+LAB="${1:-control}"
+printf '%s' "$LAB" > "$RT/tahoe-cc.req"
+PID=$(cat "$RT/tahoe-cc.pid" 2>/dev/null)
+if [ -n "$PID" ] && grep -aq control-center-daemon "/proc/$PID/cmdline" 2>/dev/null; then
+  kill -USR1 "$PID"
+else
+  setsid tahoe-settings --control-center-daemon --show --from "$LAB" >/dev/null 2>&1 &
+fi

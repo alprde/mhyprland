@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Tahoe Sistem Ayarları + Denetim Merkezi (GTK4 / libadwaita)."""
 import os as _os, sys as _sys, glob as _glob, signal as _sg
-if '--control-center' in _sys.argv:
+if any(a.startswith('--control-center') for a in _sys.argv):
     # Panel açılırken (~1 sn) gelen ikinci tıklama bu süreci SIGUSR1 ile öldürmesin; işleyici hazır olunca devreye girer
     _sg.signal(_sg.SIGUSR1, _sg.SIG_IGN)
-if '--control-center' in _sys.argv and 'libgtk4-layer-shell' not in _os.environ.get('LD_PRELOAD', ''):
+if any(a.startswith('--control-center') for a in _sys.argv) and 'libgtk4-layer-shell' not in _os.environ.get('LD_PRELOAD', ''):
     # gtk4-layer-shell, libwayland'den ÖNCE yüklenmeli: kendimizi LD_PRELOAD ile yeniden başlat
     _libs = _glob.glob('/usr/lib/libgtk4-layer-shell.so*') + _glob.glob('/usr/lib64/libgtk4-layer-shell.so*') + _glob.glob('/usr/lib/*/libgtk4-layer-shell.so*')
     if _libs:
@@ -1062,48 +1062,50 @@ class SettingsWindow(Adw.ApplicationWindow):
                 self.lb.select_row(self.lb.get_row_at_index(i)); return
 
 # ───────────────────────── Denetim Merkezi ─────────────────────────
-class ControlCenter(Gtk.ApplicationWindow):
-    def __init__(self, app):
-        super().__init__(application=app, title='Denetim Merkezi', default_width=390, decorated=False, resizable=False)
-        self.add_css_class('tahoe-cc-win')
-        outer = self.build_ui()
-        self.set_child(outer)
-        self.label = CC_LABEL[0]; self._opened = time.time(); self.catchers = []
-        if LS_OK:
-            self.setup_layer()
-        kc = Gtk.EventControllerKey()
-        kc.connect('key-pressed', lambda c, kv, kc_, st: (self.quit_cc(), True)[1] if kv == Gdk.KEY_Escape else False)
-        self.add_controller(kc)
-        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, lambda: (self.quit_cc(), False)[1])
-        # Çubuktaki başka bir simgeye tıklanınca (ikinci örnek SIGUSR1 gönderir) panel açık kalır; aynı simgeyse kapanır
-        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, self.on_signal)
+def fetch_state():
+    """Panelin gösterdiği sistem durumu: paralel sorgular, her biri en çok 2 sn."""
+    from concurrent.futures import ThreadPoolExecutor
+    q = {'wifi': 'nmcli radio wifi', 'bt': 'bluetoothctl show',
+         'ssid': "LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi list --rescan no | grep '^yes' | head -1 | cut -d: -f2",
+         'prof': 'powerprofilesctl get', 'dnd': 'swaync-client -D', 'br': 'brightnessctl -m | cut -d, -f4',
+         'vol': 'wpctl get-volume @DEFAULT_AUDIO_SINK@', 'title': 'playerctl metadata title 2>/dev/null',
+         'artist': 'playerctl metadata artist 2>/dev/null', 'art': 'playerctl metadata mpris:artUrl 2>/dev/null',
+         'pstat': 'playerctl status 2>/dev/null'}
+    with ThreadPoolExecutor(10) as ex:
+        f = {k: ex.submit(sh, c, 2) for k, c in q.items()}
+        return {k: v.result() for k, v in f.items()}
 
-    def build_ui(self):
-        """macOS Denetim Merkezi düzeni: bağlantı kartı, Rahatsız Etme, küçük kartlar, ekran/ses kaydırıcıları, çalan müzik."""
-        # Tüm dış sorgular paralel ve 2 sn zaman aşımıyla: tek bir yavaş komut paneli bekletmesin
-        from concurrent.futures import ThreadPoolExecutor
-        _q = {'wifi': 'nmcli radio wifi', 'bt': 'bluetoothctl show',
-              'ssid': "LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi list --rescan no | grep '^yes' | head -1 | cut -d: -f2",
-              'prof': 'powerprofilesctl get', 'dnd': 'swaync-client -D', 'br': 'brightnessctl -m | cut -d, -f4',
-              'vol': 'wpctl get-volume @DEFAULT_AUDIO_SINK@', 'title': 'playerctl metadata title 2>/dev/null',
-              'artist': 'playerctl metadata artist 2>/dev/null', 'art': 'playerctl metadata mpris:artUrl 2>/dev/null',
-              'pstat': 'playerctl status 2>/dev/null'}
-        with ThreadPoolExecutor(10) as _ex:
-            _f = {k: _ex.submit(sh, c, 2) for k, c in _q.items()}
-            D = {k: f.result() for k, f in _f.items()}
+
+class ControlCenter(Gtk.ApplicationWindow):
+    """Bir monitör için önceden kurulmuş (gizli) Denetim Merkezi paneli."""
+    def __init__(self, app, daemon, gmon, D):
+        super().__init__(application=app, title='Denetim Merkezi', default_width=390, decorated=False, resizable=False)
+        self.daemon = daemon; self._upd = False
+        self.add_css_class('tahoe-cc-win')
+        self.set_child(self.build_ui(D))
+        kc = Gtk.EventControllerKey()
+        kc.connect('key-pressed', lambda c, kv, kc_, st: (self.daemon.hide(), True)[1] if kv == Gdk.KEY_Escape else False)
+        self.add_controller(kc)
+        if LS_OK:
+            LS = Gtk4LayerShell
+            LS.init_for_window(self); LS.set_namespace(self, 'tahoe-cc'); LS.set_layer(self, LS.Layer.OVERLAY)
+            LS.set_anchor(self, LS.Edge.TOP, True); LS.set_anchor(self, LS.Edge.RIGHT, True)
+            LS.set_margin(self, LS.Edge.TOP, 6); LS.set_margin(self, LS.Edge.RIGHT, 8)
+            LS.set_keyboard_mode(self, LS.KeyboardMode.EXCLUSIVE)
+            if gmon is not None: LS.set_monitor(self, gmon)
+
+    # ── arayüz ──
+    def build_ui(self, D):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         outer.add_css_class('tahoe-cc-box')
-        self.rows = {}
 
         def circle(icon, active):
             img = Gtk.Image.new_from_icon_name(icon); img.set_pixel_size(18)
             img.set_halign(Gtk.Align.CENTER); img.set_valign(Gtk.Align.CENTER); img.set_hexpand(True); img.set_vexpand(True)
-            c = Gtk.Box(); c.add_css_class('cc-circle'); c.set_size_request(36, 36); c.set_valign(Gtk.Align.CENTER); c.set_halign(Gtk.Align.START); c.set_hexpand(False); c.append(img)
+            c = Gtk.Box(); c.add_css_class('cc-circle'); c.set_size_request(36, 36); c.set_valign(Gtk.Align.CENTER)
+            c.set_halign(Gtk.Align.START); c.set_hexpand(False); c.append(img)
             if active: c.add_css_class('on')
             return c
-
-        def set_on(w, on):
-            (w.add_css_class if on else w.remove_css_class)('on')
 
         def label_box(title, sub=None):
             v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1, valign=Gtk.Align.CENTER, hexpand=True)
@@ -1113,161 +1115,222 @@ class ControlCenter(Gtk.ApplicationWindow):
                 s = Gtk.Label(label=sub, xalign=0, ellipsize=3); s.add_css_class('cc-sub'); v.append(s)
             return v, s
 
-        def row(icon, title, sub, active, cb):
+        def row(icon, title, sub, active):
             b = Gtk.Button(); b.add_css_class('cc-row'); b.set_focusable(False)
             h = Gtk.Box(spacing=10); c = circle(icon, active); v, s = label_box(title, sub)
             h.append(c); h.append(v); b.set_child(h)
-            b.connect('clicked', lambda *_: cb())
             return b, c, s
 
-        # ── Üst blok: bağlantılar (sol) + Rahatsız Etme / küçük kartlar (sağ) ──
+        # ── bağlantılar ──
         top = Gtk.Box(spacing=12, homogeneous=True)
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4); left.add_css_class('cc-card')
-
-        st = {'wifi': D['wifi'] == 'enabled', 'bt': 'Powered: yes' in D['bt']}
-        def ssid(): return sh("LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi list --rescan no | grep '^yes' | head -1 | cut -d: -f2") or ('Bağlı değil' if st['wifi'] else 'Kapalı')
-        wb, wc, ws = row('network-wireless-symbolic', 'Wi-Fi', (D['ssid'] or ('Bağlı değil' if st['wifi'] else 'Kapalı')), st['wifi'], lambda: None)
-        def wifi_toggle():
-            st['wifi'] = not st['wifi']; set_on(wc, st['wifi']); ws.set_text('Açılıyor…' if st['wifi'] else 'Kapalı')
-            bg(lambda: (sh(f'nmcli radio wifi {"on" if st["wifi"] else "off"}'), time.sleep(2.5), ssid())[2], lambda v: ws.set_text(v or ''))
-        wb.connect('clicked', lambda *_: wifi_toggle())
-        bb, bc, bs = row('bluetooth-active-symbolic', 'Bluetooth', 'Açık' if st['bt'] else 'Kapalı', st['bt'], lambda: None)
-        def bt_toggle():
-            st['bt'] = not st['bt']; set_on(bc, st['bt']); bs.set_text('Açık' if st['bt'] else 'Kapalı')
-            bg_run(f'{"rfkill unblock bluetooth; " if st["bt"] else ""}bluetoothctl power {"on" if st["bt"] else "off"}')
-        bb.connect('clicked', lambda *_: bt_toggle())
-        profs = ['power-saver', 'balanced', 'performance']; pnames = ['Tasarruf', 'Dengeli', 'Performans']
-        picons = ['power-profile-power-saver-symbolic', 'power-profile-balanced-symbolic', 'power-profile-performance-symbolic']
-        cur = D['prof'] or 'balanced'; pi = [profs.index(cur) if cur in profs else 1]
-        pb, pc, ps = row(picons[pi[0]], 'Güç Modu', pnames[pi[0]], pi[0] != 1, lambda: None)
-        def prof_cycle():
-            pi[0] = (pi[0] + 1) % 3; ps.set_text(pnames[pi[0]]); set_on(pc, pi[0] != 1)
-            pc.get_first_child().set_from_icon_name(picons[pi[0]]); bg_run(f'powerprofilesctl set {profs[pi[0]]}')
-        pb.connect('clicked', lambda *_: prof_cycle())
+        self.st = {'wifi': False, 'bt': False, 'dnd': False, 'prof': 1}
+        wb, self.wc, self.ws = row('network-wireless-symbolic', 'Wi-Fi', '', False)
+        bb, self.bc, self.bs = row('bluetooth-active-symbolic', 'Bluetooth', '', False)
+        pb, self.pc, self.ps = row('power-profile-balanced-symbolic', 'Güç Modu', '', False)
+        self.profs = ['power-saver', 'balanced', 'performance']; self.pnames = ['Tasarruf', 'Dengeli', 'Performans']
+        self.picons = ['power-profile-power-saver-symbolic', 'power-profile-balanced-symbolic', 'power-profile-performance-symbolic']
+        wb.connect('clicked', lambda *_: self.wifi_toggle())
+        bb.connect('clicked', lambda *_: self.bt_toggle())
+        pb.connect('clicked', lambda *_: self.prof_cycle())
         for b in (wb, bb, pb): left.append(b)
         top.append(left)
 
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        dnd = D['dnd'] == 'true'; dst = [dnd]
-        db = Gtk.Button(); db.add_css_class('cc-card'); db.add_css_class('cc-tilebtn'); db.set_focusable(False)
-        dh = Gtk.Box(spacing=10); dc = circle('weather-clear-night-symbolic', dnd); dv, _s = label_box('Rahatsız\nEtme'); dh.append(dc); dh.append(dv); db.set_child(dh)
-        def dnd_toggle():
-            dst[0] = not dst[0]; set_on(dc, dst[0]); bg_run(f'swaync-client -{"dn" if dst[0] else "df"}')
-        db.connect('clicked', lambda *_: dnd_toggle()); db.set_vexpand(True)
+        db = Gtk.Button(); db.add_css_class('cc-card'); db.add_css_class('cc-tilebtn'); db.set_focusable(False); db.set_vexpand(True)
+        dh = Gtk.Box(spacing=10); self.dc = circle('weather-clear-night-symbolic', False); dv, _s = label_box('Rahatsız\nEtme'); dh.append(self.dc); dh.append(dv); db.set_child(dh)
+        db.connect('clicked', lambda *_: self.dnd_toggle())
         right.append(db)
         small = Gtk.Box(spacing=12, homogeneous=True)
-        def tile(icon, title, active, cb):
+        def tile(icon, title, cb):
             b = Gtk.Button(); b.add_css_class('cc-card'); b.add_css_class('cc-tilebtn'); b.set_focusable(False)
             v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
             im = Gtk.Image.new_from_icon_name(icon); im.set_pixel_size(22)
             t = Gtk.Label(label=title, justify=Gtk.Justification.CENTER, wrap=True); t.add_css_class('cc-tile-t')
-            v.append(im); v.append(t); b.set_child(v)
-            if active: b.add_css_class('on')
-            b.connect('clicked', lambda *_: cb(b)); return b
+            v.append(im); v.append(t); b.set_child(v); b.connect('clicked', lambda *_: cb(b)); return b
         def dark_toggle(b):
-            S['dark'] = not S['dark']; save(); set_on(b, S['dark']); bg(apply_theme)
-        small.append(tile('night-light-symbolic', 'Koyu\nMod', S['dark'], dark_toggle))
-        small.append(tile('system-lock-screen-symbolic', 'Ekranı\nKilitle', False, lambda b: (bg_run('hyprlock'), self.quit_cc())))
-        right.append(small)
-        top.append(right)
-        outer.append(top)
+            S['dark'] = not S['dark']; save(); (b.add_css_class if S['dark'] else b.remove_css_class)('on'); bg(apply_theme)
+        self.dark_tile = tile('night-light-symbolic', 'Koyu\nMod', dark_toggle)
+        small.append(self.dark_tile)
+        small.append(tile('system-lock-screen-symbolic', 'Ekranı\nKilitle', lambda b: (self.daemon.hide(), bg_run('hyprlock'))))
+        right.append(small); top.append(right); outer.append(top)
 
-        # ── Kaydırıcı kartları (macOS: beyaz dolgulu pill + içinde ikon) ──
-        def slider_card(title, icon, val, cb, extra=None):
+        # ── kaydırıcılar ──
+        def slider_card(title, icon, cb, extra=None):
             card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8); card.add_css_class('cc-card')
             t = Gtk.Label(label=title, xalign=0); t.add_css_class('cc-title'); card.append(t)
-            h = Gtk.Box(spacing=10)
-            ov = Gtk.Overlay(hexpand=True)
-            sc = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1); sc.set_value(val); sc.set_draw_value(False); sc.add_css_class('cc-slider')
-            sc.connect('value-changed', lambda w: cb(w.get_value()))
+            h = Gtk.Box(spacing=10); ov = Gtk.Overlay(hexpand=True)
+            sc = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1); sc.set_draw_value(False); sc.add_css_class('cc-slider')
+            sc.connect('value-changed', lambda w: None if self._upd else cb(w.get_value()))
             ov.set_child(sc)
             ic = Gtk.Image.new_from_icon_name(icon); ic.set_pixel_size(16); ic.set_halign(Gtk.Align.START); ic.set_valign(Gtk.Align.CENTER)
             ic.set_margin_start(10); ic.set_can_target(False); ic.add_css_class('cc-slider-icon'); ov.add_overlay(ic)
             h.append(ov)
             if extra is not None: h.append(extra)
-            card.append(h)
-            return card
-        try: br = int(D['br'].strip('%') or 100)
-        except Exception: br = 100
-        outer.append(slider_card('Ekran', 'display-brightness-symbolic', br, lambda v: bg_run(f'brightnessctl set {max(1, int(v))}%')))
+            card.append(h); return card, sc
+        card, self.br_scale = slider_card('Ekran', 'display-brightness-symbolic', lambda v: bg_run(f'brightnessctl set {max(1, int(v))}%'))
+        outer.append(card)
         outb = Gtk.Button(); outb.add_css_class('cc-circle'); outb.add_css_class('cc-roundbtn'); outb.set_focusable(False); outb.set_size_request(36, 36)
-        outb.set_child(Gtk.Image.new_from_icon_name('audio-speakers-symbolic')); outb.connect('clicked', lambda *_: (bg_run('tahoe-settings --pane sound'), self.quit_cc()))
-        outer.append(slider_card('Ses', 'audio-volume-high-symbolic', (float(re.search(r'([0-9.]+)', D['vol']).group(1)) * 100 if re.search(r'([0-9.]+)', D['vol']) else 0), lambda v: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SINK@ {int(v)}%'), outb))
+        outb.set_child(Gtk.Image.new_from_icon_name('audio-speakers-symbolic')); outb.connect('clicked', lambda *_: (self.daemon.hide(), bg_run('tahoe-settings --pane sound')))
+        card, self.vol_scale = slider_card('Ses', 'audio-volume-high-symbolic', lambda v: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SINK@ {int(v)}%'), outb)
+        outer.append(card)
 
-        # ── Şimdi çalıyor ──
-        title = D['title']; artist = D['artist']
-        if title:
-            np_ = Gtk.Box(spacing=12); np_.add_css_class('cc-card')
-            art = D['art']
-            if art.startswith('file://') and os.path.exists(art[7:]):
-                pic = Gtk.Picture.new_for_filename(art[7:]); pic.set_content_fit(Gtk.ContentFit.COVER)
-            else:
-                pic = Gtk.Image.new_from_icon_name('audio-x-generic-symbolic'); pic.set_pixel_size(28)
-            pic.set_size_request(52, 52); pic.add_css_class('cc-art'); np_.append(pic)
-            v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, valign=Gtk.Align.CENTER, hexpand=True)
-            tl = Gtk.Label(label=title, xalign=0, ellipsize=3, max_width_chars=18); tl.add_css_class('cc-title'); v.append(tl)
-            al = Gtk.Label(label=artist, xalign=0, ellipsize=3, max_width_chars=22); al.add_css_class('cc-sub'); v.append(al)
-            np_.append(v)
-            playing = D['pstat'] == 'Playing'
-            pp = Gtk.Button(icon_name='media-playback-pause-symbolic' if playing else 'media-playback-start-symbolic'); pp.add_css_class('cc-media'); pp.set_focusable(False)
-            def toggle_pp():
-                bg_run('playerctl play-pause'); pp.set_icon_name('media-playback-start-symbolic' if pp.get_icon_name() == 'media-playback-pause-symbolic' else 'media-playback-pause-symbolic')
-            pp.connect('clicked', lambda *_: toggle_pp())
-            nx = Gtk.Button(icon_name='media-skip-forward-symbolic'); nx.add_css_class('cc-media'); nx.set_focusable(False)
-            nx.connect('clicked', lambda *_: bg_run('playerctl next'))
-            np_.append(pp); np_.append(nx)
-            outer.append(np_)
+        self.np_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        outer.append(self.np_box)
+        self.apply_state(D)
         return outer
 
-    def setup_layer(self):
-        """Çubuğun hemen altında sabit, fareyle çıkınca kapanmayan açılır panel + dışarı tıklayınca kapatan şeffaf yakalayıcı."""
-        LS = Gtk4LayerShell
-        bar_h = 0
+    # ── eylemler ──
+    def wifi_toggle(self):
+        self.st['wifi'] = not self.st['wifi']; self._on(self.wc, self.st['wifi']); self.ws.set_text('Açılıyor…' if self.st['wifi'] else 'Kapalı')
+        on = self.st['wifi']
+        bg(lambda: (sh(f'nmcli radio wifi {"on" if on else "off"}'), time.sleep(2.5), sh("LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi list --rescan no | grep '^yes' | head -1 | cut -d: -f2"))[2],
+           lambda v: self.ws.set_text(v or ('Bağlı değil' if self.st['wifi'] else 'Kapalı')))
+
+    def bt_toggle(self):
+        self.st['bt'] = not self.st['bt']; self._on(self.bc, self.st['bt']); self.bs.set_text('Açık' if self.st['bt'] else 'Kapalı')
+        bg_run(f'{"rfkill unblock bluetooth; " if self.st["bt"] else ""}bluetoothctl power {"on" if self.st["bt"] else "off"}')
+
+    def prof_cycle(self):
+        i = (self.st['prof'] + 1) % 3; self.st['prof'] = i; self.ps.set_text(self.pnames[i]); self._on(self.pc, i != 1)
+        self.pc.get_first_child().set_from_icon_name(self.picons[i]); bg_run(f'powerprofilesctl set {self.profs[i]}')
+
+    def dnd_toggle(self):
+        self.st['dnd'] = not self.st['dnd']; self._on(self.dc, self.st['dnd']); bg_run(f'swaync-client -{"dn" if self.st["dnd"] else "df"}')
+
+    @staticmethod
+    def _on(w, on):
+        (w.add_css_class if on else w.remove_css_class)('on')
+
+    # ── durumu güncelle (panel gösterilirken arka planda gelir) ──
+    def apply_state(self, D):
+        self._upd = True
         try:
-            mons = json.loads(sh('hyprctl monitors -j'))
+            wifi = D['wifi'] == 'enabled'; self.st['wifi'] = wifi; self._on(self.wc, wifi)
+            self.ws.set_text(D['ssid'] or ('Bağlı değil' if wifi else 'Kapalı'))
+            bt = 'Powered: yes' in D['bt']; self.st['bt'] = bt; self._on(self.bc, bt); self.bs.set_text('Açık' if bt else 'Kapalı')
+            cur = D['prof'] if D['prof'] in self.profs else 'balanced'; i = self.profs.index(cur); self.st['prof'] = i
+            self.ps.set_text(self.pnames[i]); self._on(self.pc, i != 1); self.pc.get_first_child().set_from_icon_name(self.picons[i])
+            dnd = D['dnd'] == 'true'; self.st['dnd'] = dnd; self._on(self.dc, dnd)
+            self._on(self.dark_tile, S['dark'])
+            try: self.br_scale.set_value(int(D['br'].strip('%') or 100))
+            except Exception: pass
+            m = re.search(r'([0-9.]+)', D['vol']); self.vol_scale.set_value(float(m.group(1)) * 100 if m else 0)
+            self.fill_np(D)
+        finally:
+            self._upd = False
+
+    def fill_np(self, D):
+        while True:
+            c = self.np_box.get_first_child()
+            if c is None: break
+            self.np_box.remove(c)
+        title, artist = D['title'], D['artist']
+        if not title: return
+        np_ = Gtk.Box(spacing=12); np_.add_css_class('cc-card')
+        art = D['art']
+        if art.startswith('file://') and os.path.exists(art[7:]):
+            pic = Gtk.Picture.new_for_filename(art[7:]); pic.set_content_fit(Gtk.ContentFit.COVER)
+        else:
+            pic = Gtk.Image.new_from_icon_name('audio-x-generic-symbolic'); pic.set_pixel_size(28)
+        pic.set_size_request(52, 52); pic.add_css_class('cc-art'); np_.append(pic)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, valign=Gtk.Align.CENTER, hexpand=True)
+        tl = Gtk.Label(label=title, xalign=0, ellipsize=3, max_width_chars=18); tl.add_css_class('cc-title'); v.append(tl)
+        al = Gtk.Label(label=artist, xalign=0, ellipsize=3, max_width_chars=22); al.add_css_class('cc-sub'); v.append(al)
+        np_.append(v)
+        playing = D['pstat'] == 'Playing'
+        pp = Gtk.Button(icon_name='media-playback-pause-symbolic' if playing else 'media-playback-start-symbolic'); pp.add_css_class('cc-media'); pp.set_focusable(False)
+        def toggle_pp():
+            bg_run('playerctl play-pause'); pp.set_icon_name('media-playback-start-symbolic' if pp.get_icon_name() == 'media-playback-pause-symbolic' else 'media-playback-pause-symbolic')
+        pp.connect('clicked', lambda *_: toggle_pp())
+        nx = Gtk.Button(icon_name='media-skip-forward-symbolic'); nx.add_css_class('cc-media'); nx.set_focusable(False)
+        nx.connect('clicked', lambda *_: bg_run('playerctl next'))
+        np_.append(pp); np_.append(nx); self.np_box.append(np_)
+
+
+class CCDaemon:
+    """Arka planda hazır bekleyen Denetim Merkezi: çubuktan gelen SIGUSR1 ile anında gösterilir/gizlenir."""
+    def __init__(self, app):
+        self.app = app; self.panels = {}; self.catchers = {}; self.label = 'control'; self.opened = 0.0
+        self._css = None; self.css_key = None
+        self.refresh_css(force=True)
+        D = fetch_state()
+        mons = Gdk.Display.get_default().get_monitors()
+        for i in range(mons.get_n_items()):
+            m = mons.get_item(i); name = m.get_connector()
+            self.panels[name] = ControlCenter(app, self, m, D)
+            if LS_OK: self.catchers[name] = self.make_catcher(m)
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, self.on_usr1)
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, lambda: (app.quit(), False)[1])
+        try: open(CC_PID, 'w').write(str(os.getpid()))
+        except Exception: pass
+        import atexit
+        atexit.register(lambda: os.path.exists(CC_PID) and open(CC_PID).read().strip() == str(os.getpid()) and os.remove(CC_PID))
+
+    def make_catcher(self, m):
+        LS = Gtk4LayerShell
+        w = Gtk.Window(application=self.app, decorated=False); w.add_css_class('tahoe-catcher')
+        LS.init_for_window(w); LS.set_namespace(w, 'tahoe-cc-catcher'); LS.set_layer(w, LS.Layer.TOP); LS.set_monitor(w, m)
+        for e in (LS.Edge.TOP, LS.Edge.BOTTOM, LS.Edge.LEFT, LS.Edge.RIGHT): LS.set_anchor(w, e, True)
+        LS.set_margin(w, LS.Edge.TOP, 37); LS.set_exclusive_zone(w, -1)
+        g = Gtk.GestureClick(); g.connect('pressed', lambda *_: self.hide()); w.add_controller(g)
+        bx = Gtk.Box(); bx.set_size_request(10, 10); w.set_child(bx)
+        return w
+
+    def refresh_css(self, force=False):
+        """Ayarlar başka süreçte değişmiş olabilir (koyu mod/vurgu): panel göstermeden önce CSS'i tazele."""
+        fresh = load()
+        key = (fresh['dark'], fresh['accent'])
+        if not force and key == self.css_key: return
+        S['dark'], S['accent'] = key; self.css_key = key
+        disp = Gdk.Display.get_default()
+        if self._css is not None: Gtk.StyleContext.remove_provider_for_display(disp, self._css)
+        self._css = Gtk.CssProvider(); self._css.load_from_data(cc_css())
+        Gtk.StyleContext.add_provider_for_display(disp, self._css, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK if key[0] else Adw.ColorScheme.FORCE_LIGHT)
+
+    def focused(self):
+        try:
+            mons = json.loads(sh('hyprctl monitors -j', 2))
             foc = next((m for m in mons if m.get('focused')), mons[0])
-            bar_h = int(foc['reserved'][1])
-            focname = foc['name']
-        except Exception: bar_h, focname = 37, None
-        gmons = Gdk.Display.get_default().get_monitors()
-        target = None
-        for i in range(gmons.get_n_items()):
-            m = gmons.get_item(i)
-            if focname and m.get_connector() == focname: target = m
-        # Yakalayıcılar (her monitörde, çubuk alanı dışında): önce oluşturulur, panelin altında kalır
-        for i in range(gmons.get_n_items()):
-            m = gmons.get_item(i)
-            w = Gtk.Window(application=self.get_application(), decorated=False); w.add_css_class('tahoe-catcher')
-            LS.init_for_window(w); LS.set_namespace(w, 'tahoe-cc-catcher'); LS.set_layer(w, LS.Layer.TOP); LS.set_monitor(w, m)
-            for e in (LS.Edge.TOP, LS.Edge.BOTTOM, LS.Edge.LEFT, LS.Edge.RIGHT): LS.set_anchor(w, e, True)
-            LS.set_margin(w, LS.Edge.TOP, bar_h); LS.set_exclusive_zone(w, -1)
-            g = Gtk.GestureClick(); g.connect('pressed', lambda *_: self.quit_cc()); w.add_controller(g)
-            bx = Gtk.Box(); bx.set_size_request(10, 10); w.set_child(bx); w.present(); self.catchers.append(w)
-        LS.init_for_window(self); LS.set_namespace(self, 'tahoe-cc'); LS.set_layer(self, LS.Layer.OVERLAY)
-        LS.set_anchor(self, LS.Edge.TOP, True); LS.set_anchor(self, LS.Edge.RIGHT, True)
-        LS.set_margin(self, LS.Edge.TOP, 6); LS.set_margin(self, LS.Edge.RIGHT, 8)
-        LS.set_keyboard_mode(self, LS.KeyboardMode.EXCLUSIVE)
-        if target is not None: LS.set_monitor(self, target)
+            return foc['name'], int(foc['reserved'][1])
+        except Exception:
+            return None, 37
 
-    def quit_cc(self):
-        APP.quit()
+    def visible(self): return any(p.get_visible() for p in self.panels.values())
 
-    def on_signal(self):
-        try: new = open(CC_REQ).read().strip()
-        except Exception: new = 'control'
-        if new == self.label and time.time() - self._opened > 0.5:
-            self.quit_cc(); return False
-        self.label = new
+    def on_usr1(self):
+        try: label = open(CC_REQ).read().strip() or 'control'
+        except Exception: label = 'control'
+        if self.visible():
+            if label == self.label and time.time() - self.opened > 0.3: self.hide()
+            else: self.label = label
+        else:
+            self.show(label)
         return True
+
+    def show(self, label):
+        name, bar_h = self.focused()
+        panel = self.panels.get(name) or next(iter(self.panels.values()))
+        self.refresh_css()
+        if LS_OK:
+            for c in self.catchers.values():
+                Gtk4LayerShell.set_margin(c, Gtk4LayerShell.Edge.TOP, bar_h); c.present()
+        panel.present(); self.label = label; self.opened = time.time()
+        bg(fetch_state, lambda D: panel.apply_state(D) if (D and panel.get_visible()) else None)
+
+    def hide(self):
+        for w in list(self.panels.values()) + list(self.catchers.values()): w.set_visible(False)
 
 APP = None
 CC_LABEL = ['control']
 CC_REQ = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'tahoe-cc.req')
+CC_PID = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'tahoe-cc.pid')
 
 class TahoeApp(Adw.Application):
     def __init__(self, mode, pane):
-        flags = Gio.ApplicationFlags.NON_UNIQUE if mode == 'cc' else Gio.ApplicationFlags.HANDLES_COMMAND_LINE
-        super().__init__(application_id='org.tahoe.ControlCenter' if mode == 'cc' else 'org.tahoe.Settings', flags=flags)
+        flags = Gio.ApplicationFlags.NON_UNIQUE if mode == 'ccd' else Gio.ApplicationFlags.HANDLES_COMMAND_LINE
+        super().__init__(application_id='org.tahoe.ControlCenter' if mode == 'ccd' else 'org.tahoe.Settings', flags=flags)
         self.mode, self.pane = mode, pane
 
     def do_command_line(self, cl):
@@ -1284,6 +1347,12 @@ class TahoeApp(Adw.Application):
         return 0
 
     def do_activate(self):
+        if self.mode == 'ccd':
+            if getattr(self, 'daemon', None) is None:
+                Gtk.Settings.get_default().set_property('gtk-icon-theme-name', 'Adwaita')
+                self.hold(); self.daemon = CCDaemon(self)
+                if getattr(self, 'show_on_start', False): self.daemon.show(CC_LABEL[0])
+            return
         win = self.props.active_window
         if win is not None:
             win.present(); return
@@ -1293,7 +1362,7 @@ class TahoeApp(Adw.Application):
         pt = Gtk.CssProvider(); pt.load_from_data(TL_CSS + cc_css())
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pt, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK if S['dark'] else Adw.ColorScheme.FORCE_LIGHT)
-        w = ControlCenter(self) if self.mode == 'cc' else SettingsWindow(self, self.pane)
+        w = SettingsWindow(self, self.pane)
         w.present()
 
 def default_wallpaper():
@@ -1313,27 +1382,27 @@ def main():
         apply_theme(); apply_hypr(); write_clock(); write_idle(); return
     if '--apply-theme' in args:
         apply_theme(); return
-    mode = 'cc' if '--control-center' in args else 'settings'
-    if mode == 'cc':
+    if '--control-center' in args:
+        # Eski kullanım: çubuk betiği (tahoe-cc) daemon'a sinyal gönderir; burada ona devret
+        lab = args[args.index('--from') + 1] if '--from' in args else 'control'
+        os.execvp('tahoe-cc', ['tahoe-cc', lab])
+    mode = 'ccd' if '--control-center-daemon' in args else 'settings'
+    if mode == 'ccd':
         CC_LABEL[0] = args[args.index('--from') + 1] if '--from' in args else 'control'
-        me = os.getpid()
-        others = []
-        for d in os.listdir('/proc'):
-            if not d.isdigit() or int(d) == me: continue
-            try: argv = open(f'/proc/{d}/cmdline', 'rb').read().split(b'\0')
-            except Exception: continue
-            if len(argv) > 2 and os.path.basename(argv[0].decode(errors='ignore')).startswith('python') and argv[1].decode(errors='ignore').endswith('tahoe-settings') and b'--control-center' in argv:
-                others.append(int(d))
-        if others:
-            try: open(CC_REQ, 'w').write(CC_LABEL[0])
-            except Exception: pass
-            for p in others:
-                try: os.kill(p, signal.SIGUSR1)
-                except Exception: pass
-            return
+        # Zaten çalışan bir daemon varsa yalnızca göster/gizle isteği gönder
+        try:
+            pid = int(open(CC_PID).read().strip())
+            if b'control-center-daemon' in open(f'/proc/{pid}/cmdline', 'rb').read():
+                if '--show' in args:
+                    try: open(CC_REQ, 'w').write(CC_LABEL[0])
+                    except Exception: pass
+                    os.kill(pid, signal.SIGUSR1)
+                return
+        except Exception: pass
     pane = args[args.index('--pane') + 1] if '--pane' in args else None
     APP = TahoeApp(mode, pane)
-    APP.run([sys.argv[0]] if mode == 'cc' else sys.argv)
+    APP.show_on_start = '--show' in args
+    APP.run([sys.argv[0]] if mode == 'ccd' else sys.argv)
 
 if __name__ == '__main__':
     main()
