@@ -43,7 +43,7 @@ windowcontrols button.close, headerbar button.titlebutton.close { background-col
 windowcontrols button.minimize, headerbar button.titlebutton.minimize { background-color: #febc2e; }
 windowcontrols button.maximize, headerbar button.titlebutton.maximize { background-color: #28c840; }
 windowcontrols button:backdrop, headerbar button.titlebutton:backdrop { background-color: rgba(255,255,255,0.22); }
-windowcontrols button:hover { filter: brightness(1.15); }
+
 
 /* Düğmeler */
 button {

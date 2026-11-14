@@ -86,7 +86,7 @@ def apply_theme():
     imp = 'gtk-contained-dark.css' if dark else 'gtk-contained.css'
     for d in (f'{HOME}/.themes/Tahoe/gtk-3.0', f'{HOME}/.themes/Tahoe/gtk-4.0', f'{HOME}/.config/gtk-4.0'):
         os.makedirs(d, exist_ok=True)
-    open(f'{HOME}/.themes/Tahoe/gtk-3.0/gtk.css', 'w').write(f'@import url("resource:///org/gtk/libgtk/theme/Adwaita/{imp}");\n' + css)
+    open(f'{HOME}/.themes/Tahoe/gtk-3.0/gtk.css', 'w').write(f'@import url("resource:///org/gtk/libgtk/theme/Adwaita/{imp}");\n' + '\n'.join(l for l in css.split('\n') if '-gtk-icon-size' not in l))
     open(f'{HOME}/.themes/Tahoe/gtk-4.0/gtk.css', 'w').write(css)
     open(f'{HOME}/.config/gtk-4.0/gtk.css', 'w').write(css)
     if IN_HYPR:
@@ -94,19 +94,20 @@ def apply_theme():
         sh("gsettings set org.gnome.desktop.interface gtk-theme Tahoe")
     p = palette(dark)
     ov = p['OV']
-    open(f'{HOME}/.config/waybar/style.css', 'w').write(f'''* {{ font-family: "Inter", "JetBrainsMono Nerd Font"; font-size: 13px; font-weight: 500; border: none; border-radius: 0; min-height: 0; }}
+    open(f'{HOME}/.config/waybar/style.css', 'w').write(f'''* {{ font-family: "Inter", "JetBrainsMono NFM", "JetBrainsMono Nerd Font"; font-size: 13px; font-weight: 500; border: none; border-radius: 0; min-height: 0; }}
 window#waybar {{ background: {p['PANEL']}; color: {p['FG']}; border-bottom: 1px solid rgba({ov},0.08); }}
-#custom-apple, #window, #tray, #pulseaudio, #network, #battery, #custom-clock, #custom-notif, #custom-spotlight, #custom-control, #bluetooth {{ margin: 3px 1px; border-radius: 6px; }}
-#custom-apple {{ font-size: 16px; padding: 0 12px; }}
+#clock.apple, #window, #tray, #pulseaudio, #network, #battery, #clock.time, #clock.notif, #clock.spotlight, #clock.control, #bluetooth {{ margin: 3px 1px; border-radius: 6px; }}
+#clock.apple {{ padding: 0 10px; }}
 #window {{ font-weight: 700; padding: 0 8px; }}
 #workspaces {{ margin-left: 10px; }}
 #workspaces button {{ padding: 0 4px; color: rgba({ov},0.45); font-size: 9px; background: transparent; }}
 #workspaces button.active {{ color: {p['FG']}; }}
 #workspaces button:hover {{ background: rgba({ov},0.12); border-radius: 8px; }}
-#tray, #pulseaudio, #network, #battery, #custom-clock, #custom-notif, #custom-spotlight, #custom-control, #bluetooth {{ padding: 0 8px; }}
-#custom-spotlight, #custom-control, #network, #bluetooth {{ font-size: 14px; }}
-#custom-clock {{ font-weight: 600; }}
-#custom-apple:hover, #window:hover, #custom-spotlight:hover, #custom-control:hover, #network:hover, #pulseaudio:hover, #battery:hover, #custom-clock:hover, #custom-notif:hover, #tray:hover {{ background: rgba({ov},0.14); }}
+#tray, #pulseaudio, #network, #battery, #clock.time, #clock.notif, #clock.spotlight, #clock.control, #bluetooth {{ padding: 0 8px; }}
+#clock.apple, #clock.spotlight, #clock.control, #clock.notif, #network, #pulseaudio, #bluetooth {{ font-family: "JetBrainsMono NFM", "Inter"; min-width: 18px; font-size: 16px; }}
+#network, #pulseaudio {{ font-size: 18px; }}
+#clock.time {{ font-weight: 600; }}
+#clock.apple:hover, #window:hover, #clock.spotlight:hover, #clock.control:hover, #network:hover, #pulseaudio:hover, #battery:hover, #clock.time:hover, #clock.notif:hover, #tray:hover {{ background: rgba({ov},0.14); }}
 #battery.warning {{ color: #ff9f0a; }} #battery.critical {{ color: #ff453a; }}
 tooltip {{ background: {p['TIP']}; border-radius: 12px; border: 1px solid rgba({ov},0.1); }}
 tooltip label {{ color: {p['FG']}; }}

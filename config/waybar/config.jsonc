@@ -1,21 +1,21 @@
 {
   "layer": "top",
   "position": "top",
-  "height": 30,
-  "modules-left": ["custom/apple", "hyprland/window", "hyprland/workspaces"],
+  "height": 32,
+  "modules-left": ["clock#apple", "hyprland/window", "hyprland/workspaces"],
   "modules-center": [],
-  "modules-right": ["tray", "battery", "network", "pulseaudio", "custom/spotlight", "custom/control", "custom/clock", "custom/notif"],
+  "modules-right": ["tray", "battery", "network", "pulseaudio", "clock#spotlight", "clock#control", "clock#time", "clock#notif"],
 
-  "custom/apple": { "format": "", "tooltip": false, "on-click": "tahoe-apple-menu" },
+  "clock#apple": { "format": "\uf179", "tooltip-format": "Apple menüsü", "on-click": "tahoe-apple-menu" },
+  "clock#spotlight": { "format": "\uf002", "tooltip-format": "Spotlight Araması", "on-click": "rofi -show drun" },
+  "clock#control": { "format": "\uf1de", "tooltip-format": "Denetim Merkezi", "on-click": "tahoe-settings --control-center" },
+  "clock#notif": { "format": "\uf0f3", "tooltip-format": "Bildirim Merkezi", "on-click": "swaync-client -t -sw" },
+  "clock#time": { "locale": "tr_TR.utf8", "format": "{:L%a %e %b  %H:%M}", "tooltip-format": "<tt>{calendar}</tt>", "on-click": "swaync-client -t -sw" },
   "hyprland/window": { "format": "{class}", "max-length": 40, "separate-outputs": true, "rewrite": { "": "Finder", "^org\\.tahoe\\.Settings$": "Sistem Ayarları", "^org\\.tahoe\\.ControlCenter$": "Denetim Merkezi", "^kitty$": "Terminal", "^(firefox|zen)$": "Safari", "^org\\.kde\\.dolphin$": "Finder", "^dolphin$": "Finder", "^pavucontrol$": "Ses Denetimi" }, "on-click": "tahoe-app-menu" },
   "hyprland/workspaces": { "format": "{icon}", "format-icons": { "active": "", "default": "" }, "persistent-workspaces": { "*": 4 }, "on-click": "activate" },
 
-  "custom/clock": { "exec": "tahoe-clock", "interval": 5, "format": "{}", "tooltip": false, "on-click": "swaync-client -t -sw" },
-  "battery": { "format": "{capacity}% {icon}", "format-charging": "{capacity}% ", "format-icons": ["","","","",""], "tooltip-format": "{timeTo}", "on-click": "tahoe-settings --control-center", "on-click-right": "tahoe-settings --pane battery" },
+  "battery": { "format": "{capacity}% <span font='JetBrainsMono NFM 12'>{icon}</span>", "format-charging": "{capacity}% <span font='JetBrainsMono NFM 12'>\uf0e7</span>", "format-icons": ["\uf244","\uf243","\uf242","\uf241","\uf240"], "tooltip-format": "{timeTo}", "on-click": "tahoe-settings --control-center", "on-click-right": "tahoe-settings --pane battery" },
   "network": { "format-wifi": "", "format-ethernet": "", "format-disconnected": "", "tooltip-format": "{essid}  {signalStrength}%", "on-click": "tahoe-settings --control-center", "on-click-right": "tahoe-settings --pane wifi" },
   "pulseaudio": { "format": "{icon}", "format-muted": "", "format-icons": { "default": ["","",""] }, "on-click": "tahoe-settings --control-center", "on-click-right": "tahoe-settings --pane sound", "scroll-step": 5 },
-  "custom/spotlight": { "format": "", "tooltip": false, "on-click": "rofi -show drun" },
-  "custom/control": { "format": "", "tooltip": false, "on-click": "pavucontrol" },
-  "custom/notif": { "format": "", "tooltip": false, "on-click": "swaync-client -t -sw" },
   "tray": { "spacing": 10, "icon-size": 16 }
 }
