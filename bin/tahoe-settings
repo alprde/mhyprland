@@ -926,6 +926,33 @@ PANES = [
     ('datetime', 'Tarih ve Saat', 'preferences-system-time-symbolic', pane_datetime), ('lang', 'Dil ve Bölge', 'preferences-desktop-locale-symbolic', pane_lang),
 ]
 
+# ───────────────────────── macOS trafik ışıkları ─────────────────────────
+TL_CSS = b"""
+.tl-box { margin: 0 4px 0 8px; }
+button.tl { min-width: 12px; min-height: 12px; padding: 0; margin: 0; border-radius: 999px; box-shadow: none; background-image: none;
+            border: 1px solid rgba(0,0,0,0.14); }
+button.tl label { font-size: 9px; font-weight: 800; color: rgba(0,0,0,0.55); opacity: 0; }
+.tl-box:hover button.tl label { opacity: 1; }
+button.tl-close { background-color: #ff5f57; } button.tl-close:hover { background-color: #ff5f57; }
+button.tl-min   { background-color: #febc2e; } button.tl-min:hover   { background-color: #febc2e; }
+button.tl-max   { background-color: #28c840; } button.tl-max:hover   { background-color: #28c840; }
+window:backdrop button.tl { background-color: rgba(128,128,136,0.45); }
+"""
+
+def traffic_lights(win):
+    box = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER); box.add_css_class('tl-box')
+    def mk(cls, glyph, cb):
+        b = Gtk.Button(); b.add_css_class('tl'); b.add_css_class(cls); b.set_focusable(False)
+        b.set_child(Gtk.Label(label=glyph)); b.connect('clicked', lambda *_: cb()); box.append(b)
+    mk('tl-close', '×', win.close)
+    mk('tl-min', '−', lambda: sh("hyprctl dispatch 'hl.dsp.window.move({ workspace = \"special:minimized\" })'"))
+    mk('tl-max', '+', lambda: sh("hyprctl dispatch 'hl.dsp.window.fullscreen()'"))
+    return box
+
+def no_native_controls(*bars):
+    for b in bars:
+        b.set_show_start_title_buttons(False); b.set_show_end_title_buttons(False)
+
 # ───────────────────────── Sistem Ayarları penceresi ─────────────────────────
 class SettingsWindow(Adw.ApplicationWindow):
     def __init__(self, app, pane=None):
@@ -934,6 +961,7 @@ class SettingsWindow(Adw.ApplicationWindow):
         self.split = Adw.NavigationSplitView(); self.split.set_min_sidebar_width(250); self.split.set_max_sidebar_width(300)
         self.toasts.set_child(self.split); self.set_content(self.toasts)
         sb = Adw.ToolbarView(); sh_ = Adw.HeaderBar(); sh_.set_show_title(False); sb.add_top_bar(sh_)
+        no_native_controls(sh_); sh_.pack_start(traffic_lights(self))
         self.search = Gtk.SearchEntry(placeholder_text='Ara', margin_start=10, margin_end=10, margin_bottom=6)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL); box.append(self.search)
         self.lb = Gtk.ListBox(css_classes=['navigation-sidebar']); self.lb.set_selection_mode(Gtk.SelectionMode.SINGLE)
@@ -949,6 +977,7 @@ class SettingsWindow(Adw.ApplicationWindow):
         sc = Gtk.ScrolledWindow(vexpand=True); sc.set_child(self.lb); box.append(sc); sb.set_content(box)
         self.split.set_sidebar(Adw.NavigationPage.new(sb, 'Sistem Ayarları'))
         self.ctb = Adw.ToolbarView(); self.chead = Adw.HeaderBar(); self.ctitle = Adw.WindowTitle(title='', subtitle=''); self.chead.set_title_widget(self.ctitle)
+        no_native_controls(self.chead)
         self.ctb.add_top_bar(self.chead)
         self.cpage = Adw.NavigationPage.new(self.ctb, 'Ayarlar'); self.split.set_content(self.cpage)
         self.lb.connect('row-selected', self.on_row)
@@ -1050,8 +1079,10 @@ class TahoeApp(Adw.Application):
 
     def do_activate(self):
         Gtk.Settings.get_default().set_property('gtk-icon-theme-name', 'Adwaita')
-        pv = Gtk.CssProvider(); pv.load_from_data(b'row.tahoe-sep, row.tahoe-sep:hover { background: transparent; min-height: 0; padding: 0; margin: 0; } windowcontrols button { min-width: 12px; min-height: 12px; }')
+        pv = Gtk.CssProvider(); pv.load_from_data(b'row.tahoe-sep, row.tahoe-sep:hover { background: transparent; min-height: 0; padding: 0; margin: 0; }')
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pv, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+        pt = Gtk.CssProvider(); pt.load_from_data(TL_CSS)
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pt, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK if S['dark'] else Adw.ColorScheme.FORCE_LIGHT)
         w = ControlCenter(self) if self.mode == 'cc' else SettingsWindow(self, self.pane)
         w.present()

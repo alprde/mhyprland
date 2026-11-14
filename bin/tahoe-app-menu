@@ -8,13 +8,14 @@ choice=$( {
   printf '<span size="2pt" alpha="22%%">%s</span>\0nonselectable\x1ftrue\n' '────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────'
   printf '%s\n' "$cls Uygulamasını Gizle" "Diğerlerini Gizle"
   printf '<span size="2pt" alpha="22%%">%s</span>\0nonselectable\x1ftrue\n' '────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────'
-  printf '%s\n' "Pencereyi Küçült" "Yakınlaştır (Tam Ekran)" "Yüzen Pencere" "Pencereyi Kapat" "$cls Uygulamasından Çık"
+  printf '%s\n' "Pencereyi Küçült" "Küçültülenleri Göster" "Yakınlaştır (Tam Ekran)" "Yüzen Pencere" "Pencereyi Kapat" "$cls Uygulamasından Çık"
 } | rofi -dmenu -i -markup-rows -no-custom -p "" -theme ~/.config/rofi/apple.rasi -theme-str 'window {x-offset: 70px;}')
 case "$choice" in
   *Hakkında) exec tahoe-settings --pane general ;;
   "Ayarlar…") exec tahoe-settings ;;
   *Gizle) hyprctl dispatch 'hl.dsp.window.move({ workspace = "special:hidden" })' ;;
   "Diğerlerini Gizle") hyprctl clients -j | jq -r --arg a "$(echo "$w" | jq -r .address)" '.[]|select(.address!=$a)|.address' | while read a; do hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:hidden\", window = \"address:$a\" })"; done ;;
+  "Küçültülenleri Göster") hyprctl dispatch 'hl.dsp.workspace.toggle_special("minimized")' ;;
   "Pencereyi Küçült") hyprctl dispatch 'hl.dsp.window.move({ workspace = "special:minimized" })' ;;
   Yakınlaştır*) hyprctl dispatch 'hl.dsp.window.fullscreen()' ;;
   "Yüzen Pencere") hyprctl dispatch 'hl.dsp.window.float({ action = "toggle" })' ;;

@@ -62,6 +62,8 @@ hl.bind(mod .. " + ALT + Escape", hl.dsp.exec_cmd("tahoe-forcequit"))
 hl.bind(mod .. " + SHIFT + 3", hl.dsp.exec_cmd("hyprshot -m output --clipboard-only"))
 hl.bind(mod .. " + SHIFT + 4", hl.dsp.exec_cmd("hyprshot -m region --clipboard-only"))
 hl.bind(mod .. " + F",      hl.dsp.window.fullscreen())
+hl.bind(mod .. " + M",      hl.dsp.window.move({ workspace = "special:minimized" }))   -- küçült
+hl.bind(mod .. " + SHIFT + M", hl.dsp.workspace.toggle_special("minimized"))        -- küçültülenleri göster/gizle
 hl.bind(mod .. " + Q",      hl.dsp.window.close())
 hl.bind(mod .. " + SHIFT + E", hl.dsp.exec_cmd("hyprctl dispatch 'hl.dsp.exit()'"))
 hl.bind(mod .. " + V",      hl.dsp.window.float({ action = "toggle" }))

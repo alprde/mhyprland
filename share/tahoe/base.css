@@ -116,3 +116,9 @@ separator { background-color: rgba(255,255,255,0.08); min-height: 1px; min-width
 /* Seçili çözünürlük / segment düğmeleri */
 togglebutton.flat:checked { background-color: alpha(@accent_bg_color, 0.28); border: 2px solid @accent_bg_color; }
 togglebutton.flat { border: 2px solid transparent; border-radius: 12px; }
+
+/* Trafik ışıkları: CSD uygulamaları (macOS ölçüsü: 12px, 8px aralık) */
+windowcontrols > button, headerbar windowcontrols > button.titlebutton { min-width: 12px; min-height: 12px; padding: 0; margin: 0 4px; border-radius: 999px; border: 1px solid rgba(0,0,0,0.14); }
+windowcontrols > button image { -gtk-icon-size: 0; min-width: 0; min-height: 0; opacity: 0; }
+windowcontrols > button:disabled { opacity: 1; }
+windowcontrols > button.minimize { background-color: #febc2e; }

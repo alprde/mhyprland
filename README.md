@@ -56,6 +56,7 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 | `⌘ ,` | System Settings |
 | `⌘ Q` | Close window |
 | `⌘ F` / `⌘ V` | Fullscreen / floating |
+| `⌘ M` / `⌘ ⇧ M` | Minimize window / show minimized windows |
 | `⌘ 1…0`, `⌘ ⇧ 1…0` | Switch workspace / move window |
 | `⌘ ⇧ 3`, `⌘ ⇧ 4` | Screenshot (screen / region) to clipboard |
 | `⌘ ⌃ Q` | Lock screen |
