@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+"""Bazı tepsi (StatusNotifier) uygulamaları sol tıklamayı (Activate) yok sayar; yalnızca sağ tık menüsündeki
+"Göster / Show" öğesi pencereyi açar (ör. Claude Desktop). Bu yardımcı D-Bus'taki Activate çağrılarını izler ve
+listedeki uygulamalar için o menü öğesini kendisi tetikler.
+
+Ayar: ~/.config/tahoe/tray-activate.json  →  {"apps": ["Claude"], "labels": "göster|show|open|aç"}
+"""
+import gi, json, os, re, subprocess, sys, time
+gi.require_version('Gio', '2.0')
+from gi.repository import Gio, GLib
+
+CFG = os.path.expanduser('~/.config/tahoe/tray-activate.json')
+cfg = {'apps': ['Claude'], 'labels': 'göster|show|open|aç'}
+try: cfg.update(json.load(open(CFG)))
+except Exception: pass
+
+bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+
+def call(dest, path, iface, method, params=None, sig=None, timeout=2000):
+    return bus.call_sync(dest, path, iface, method, params, None, Gio.DBusCallFlags.NONE, timeout, None)
+
+def prop(dest, path, name):
+    r = call(dest, path, 'org.freedesktop.DBus.Properties', 'Get', GLib.Variant('(ss)', ('org.kde.StatusNotifierItem', name)))
+    return r.unpack()[0]
+
+def find_show_item(node, rx):
+    id_, props, children = node
+    label = (props.get('label') or '').replace('_', '')
+    if id_ != 0 and props.get('visible', True) and props.get('enabled', True) and rx.search(label): return id_
+    for c in children:
+        r = find_show_item(c, rx)
+        if r is not None: return r
+    return None
+
+last = {}
+def on_activate(dest, path):
+    now = time.time()
+    if now - last.get(dest, 0) < 0.8: return
+    last[dest] = now
+    try:
+        ident = prop(dest, path, 'Id')
+        if not any(a.lower() in ident.lower() for a in cfg['apps']): return
+        menu = prop(dest, path, 'Menu')
+        layout = call(dest, menu, 'com.canonical.dbusmenu', 'GetLayout', GLib.Variant('(iias)', (0, -1, []))).unpack()[1]
+        item = find_show_item(layout, re.compile(cfg['labels'], re.I))
+        if item is None: return
+        call(dest, menu, 'com.canonical.dbusmenu', 'Event', GLib.Variant('(isvu)', (item, 'clicked', GLib.Variant('i', 0), int(now))))
+    except Exception as e:
+        print('tahoe-tray-assist:', e, file=sys.stderr)
+
+rx = re.compile(r'destination=(\S+) .*?path=(\S+?);.*member=Activate')
+p = subprocess.Popen(['dbus-monitor', '--session', "type='method_call',interface='org.kde.StatusNotifierItem',member='Activate'"],
+                     stdout=subprocess.PIPE, text=True, bufsize=1)
+for line in p.stdout:
+    m = rx.search(line)
+    if m: on_activate(m.group(1), m.group(2))

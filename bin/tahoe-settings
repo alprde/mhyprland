@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
 """Tahoe Sistem Ayarları + Denetim Merkezi (GTK4 / libadwaita)."""
+import os as _os, sys as _sys, glob as _glob
+if '--control-center' in _sys.argv and 'libgtk4-layer-shell' not in _os.environ.get('LD_PRELOAD', ''):
+    # gtk4-layer-shell, libwayland'den ÖNCE yüklenmeli: kendimizi LD_PRELOAD ile yeniden başlat
+    _libs = _glob.glob('/usr/lib/libgtk4-layer-shell.so*') + _glob.glob('/usr/lib64/libgtk4-layer-shell.so*') + _glob.glob('/usr/lib/*/libgtk4-layer-shell.so*')
+    if _libs:
+        _os.environ['LD_PRELOAD'] = _libs[0] + ((':' + _os.environ['LD_PRELOAD']) if _os.environ.get('LD_PRELOAD') else '')
+        _os.execv(_sys.executable, [_sys.executable] + _sys.argv)
 import gi, json, os, re, subprocess, threading, sys, shutil, glob, time, signal
 gi.require_version('Gtk', '4.0'); gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
+try:
+    gi.require_version('Gtk4LayerShell', '1.0')
+    from gi.repository import Gtk4LayerShell
+    LS_OK = True
+except Exception:
+    LS_OK = False
 
 HOME = os.path.expanduser('~')
 CFG_DIR = f'{HOME}/.config/tahoe'
@@ -944,6 +957,13 @@ button.tl-max   { background-color: #28c840; } button.tl-max:hover   { backgroun
 window:backdrop button.tl { background-color: rgba(128,128,136,0.45); }
 """
 
+CC_CSS = b"""
+window.tahoe-cc-win { background: transparent; box-shadow: none; }
+window.tahoe-catcher { background: rgba(0,0,0,0.01); box-shadow: none; }
+.tahoe-cc-box { background-color: rgba(34,34,40,0.78); border-radius: 20px; border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 14px 40px rgba(0,0,0,0.45); }
+.tahoe-cc-box togglebutton:checked { background-color: @accent_bg_color; color: #fff; border-color: transparent; }
+"""
+
 def traffic_lights(win):
     box = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER); box.add_css_class('tl-box')
     def mk(cls, glyph, cb):
@@ -1014,11 +1034,12 @@ class SettingsWindow(Adw.ApplicationWindow):
                 self.lb.select_row(self.lb.get_row_at_index(i)); return
 
 # ───────────────────────── Denetim Merkezi ─────────────────────────
-class ControlCenter(Adw.ApplicationWindow):
+class ControlCenter(Gtk.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title='Denetim Merkezi', default_width=360, default_height=520, decorated=False, resizable=False)
-        self.add_css_class('tahoe-cc')
+        super().__init__(application=app, title='Denetim Merkezi', default_width=360, decorated=False, resizable=False)
+        self.add_css_class('tahoe-cc-win')
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=14, margin_bottom=14, margin_start=14, margin_end=14)
+        outer.add_css_class('tahoe-cc-box')
         grid = Gtk.Grid(column_spacing=10, row_spacing=10, column_homogeneous=True)
         wifi = sh('nmcli radio wifi') == 'enabled'; bt = 'Powered: yes' in sh('bluetoothctl show')
         dnd = sh('swaync-client -D') == 'true'
@@ -1064,32 +1085,59 @@ class ControlCenter(Adw.ApplicationWindow):
             for ic, cmd in [('media-skip-backward-symbolic', 'previous'), ('media-playback-start-symbolic', 'play-pause'), ('media-skip-forward-symbolic', 'next')]:
                 b = Gtk.Button(icon_name=ic, css_classes=['flat']); b.connect('clicked', lambda _b, c=cmd: bg_run(f'playerctl {c}')); cb_.append(b)
             np_.append(cb_); outer.append(np_)
-        btn = Gtk.Button(label='Sistem Ayarları…'); btn.connect('clicked', lambda *_: (bg_run('tahoe-settings'), app.quit()))
+        btn = Gtk.Button(label='Sistem Ayarları…'); btn.connect('clicked', lambda *_: (bg_run('tahoe-settings'), self.quit_cc()))
         outer.append(btn)
-        self.set_content(outer)
-        self.label = CC_LABEL[0]; self._close_id = None; self._opened = time.time()
-        self.connect('notify::is-active', self.on_active)
-        self._armed = False
-        GLib.timeout_add(600, lambda: (setattr(self, '_armed', True), False)[1])
-        # Çubuktaki başka bir simgeye tıklanınca (ikinci örnek SIGUSR1 gönderir) menü açık kalır; aynı simgeyse kapanır
+        self.set_child(outer)
+        self.label = CC_LABEL[0]; self._opened = time.time(); self.catchers = []
+        if LS_OK:
+            self.setup_layer()
+        kc = Gtk.EventControllerKey()
+        kc.connect('key-pressed', lambda c, kv, kc_, st: (self.quit_cc(), True)[1] if kv == Gdk.KEY_Escape else False)
+        self.add_controller(kc)
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, lambda: (self.quit_cc(), False)[1])
+        # Çubuktaki başka bir simgeye tıklanınca (ikinci örnek SIGUSR1 gönderir) panel açık kalır; aynı simgeyse kapanır
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, self.on_signal)
 
-    def cancel_close(self):
-        if self._close_id: GLib.source_remove(self._close_id); self._close_id = None
+    def setup_layer(self):
+        """Çubuğun hemen altında sabit, fareyle çıkınca kapanmayan açılır panel + dışarı tıklayınca kapatan şeffaf yakalayıcı."""
+        LS = Gtk4LayerShell
+        bar_h = 0
+        try:
+            mons = json.loads(sh('hyprctl monitors -j'))
+            foc = next((m for m in mons if m.get('focused')), mons[0])
+            bar_h = int(foc['reserved'][1])
+            focname = foc['name']
+        except Exception: bar_h, focname = 37, None
+        gmons = Gdk.Display.get_default().get_monitors()
+        target = None
+        for i in range(gmons.get_n_items()):
+            m = gmons.get_item(i)
+            if focname and m.get_connector() == focname: target = m
+        # Yakalayıcılar (her monitörde, çubuk alanı dışında): önce oluşturulur, panelin altında kalır
+        for i in range(gmons.get_n_items()):
+            m = gmons.get_item(i)
+            w = Gtk.Window(application=self.get_application(), decorated=False); w.add_css_class('tahoe-catcher')
+            LS.init_for_window(w); LS.set_namespace(w, 'tahoe-cc-catcher'); LS.set_layer(w, LS.Layer.TOP); LS.set_monitor(w, m)
+            for e in (LS.Edge.TOP, LS.Edge.BOTTOM, LS.Edge.LEFT, LS.Edge.RIGHT): LS.set_anchor(w, e, True)
+            LS.set_margin(w, LS.Edge.TOP, bar_h); LS.set_exclusive_zone(w, -1)
+            g = Gtk.GestureClick(); g.connect('pressed', lambda *_: self.quit_cc()); w.add_controller(g)
+            bx = Gtk.Box(); bx.set_size_request(10, 10); w.set_child(bx); w.present(); self.catchers.append(w)
+        LS.init_for_window(self); LS.set_namespace(self, 'tahoe-cc'); LS.set_layer(self, LS.Layer.OVERLAY)
+        LS.set_anchor(self, LS.Edge.TOP, True); LS.set_anchor(self, LS.Edge.RIGHT, True)
+        LS.set_margin(self, LS.Edge.TOP, 6); LS.set_margin(self, LS.Edge.RIGHT, 8)
+        LS.set_keyboard_mode(self, LS.KeyboardMode.EXCLUSIVE)
+        if target is not None: LS.set_monitor(self, target)
+
+    def quit_cc(self):
+        APP.quit()
 
     def on_signal(self):
         try: new = open(CC_REQ).read().strip()
         except Exception: new = 'control'
         if new == self.label and time.time() - self._opened > 0.5:
-            APP.quit(); return False
-        self.label = new; self.cancel_close(); self.present()
+            self.quit_cc(); return False
+        self.label = new
         return True
-
-    def on_active(self, w, _):
-        if self.is_active(): self.cancel_close(); return
-        if self._armed and not self._close_id:
-            # Odak çubuğa geçti olabilir: ikinci örneğin gelmesi için süre tanı
-            self._close_id = GLib.timeout_add(900, lambda: (APP.quit(), False)[1])
 
 APP = None
 CC_LABEL = ['control']
@@ -1121,7 +1169,7 @@ class TahoeApp(Adw.Application):
         Gtk.Settings.get_default().set_property('gtk-icon-theme-name', 'Adwaita')
         pv = Gtk.CssProvider(); pv.load_from_data(b'row.tahoe-sep, row.tahoe-sep:hover { background: transparent; min-height: 0; padding: 0; margin: 0; }')
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pv, Gtk.STYLE_PROVIDER_PRIORITY_USER)
-        pt = Gtk.CssProvider(); pt.load_from_data(TL_CSS)
+        pt = Gtk.CssProvider(); pt.load_from_data(TL_CSS + CC_CSS)
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pt, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK if S['dark'] else Adw.ColorScheme.FORCE_LIGHT)
         w = ControlCenter(self) if self.mode == 'cc' else SettingsWindow(self, self.pane)

@@ -81,7 +81,7 @@ PKGS=(
   hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpaper hyprlock hypridle hyprpolkitagent hyprshot hyprsunset
   kitty waybar rofi swaync nwg-dock-hyprland grim slurp wl-clipboard cliphist brightnessctl playerctl jq
   pipewire pipewire-pulse wireplumber pavucontrol networkmanager nm-connection-editor bluez bluez-utils power-profiles-daemon
-  python python-gobject python-cairo python-numpy python-pillow gtk4 libadwaita
+  dbus gtk4-layer-shell python python-gobject python-cairo python-numpy python-pillow gtk4 libadwaita
   inter-font ttf-jetbrains-mono-nerd otf-font-awesome capitaine-cursors breeze-icons adwaita-icon-theme
 )
 [ "${NEED_GIT:-0}" = 1 ] && PKGS+=(git)

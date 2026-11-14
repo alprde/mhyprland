@@ -43,7 +43,8 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 - **Menu bar** (waybar): Apple logo, active app name (click → app menu), workspaces, tray, battery, Wi-Fi, volume, Spotlight, Control Center, clock, notifications. Glass blur, rounded windows, macOS-style animations.
 - **Apple menu**: About This Mac, System Settings, Software Store, Recent Items, Force Quit, Sleep, Restart, Shut Down, Lock Screen, Log Out.
 - **System Settings** (`tahoe-settings`, GTK4/libadwaita), 21 panes: Wi-Fi, Bluetooth, Network, Battery, General (about/storage/updates), Appearance (light/dark + 8 accent colors), Accessibility, Desktop & Dock, Displays (draggable layout, scaled resolutions, refresh rate, rotation, mirroring, VRR, night light), Wallpaper, Notifications & Focus, Sound, Lock Screen, Privacy & Security, Login Items, Users, Keyboard, Mouse & Trackpad, Printers, Date & Time, Language & Region.
-- **Control Center**: Wi-Fi, Bluetooth, dark mode, Do Not Disturb, brightness, volume, power profile, now playing.
+- **Control Center** (a popup under the menu bar; closes on outside click or `Esc`): Wi-Fi, Bluetooth, dark mode, Do Not Disturb, brightness, volume, power profile, now playing.
+- **Tray helper**: left-clicking tray apps that ignore it (e.g. Claude Desktop) now opens them (`tahoe-tray-assist`).
 - **Spotlight** (rofi), **Dock** (nwg-dock-hyprland), **notifications** (swaync), **lock screen** (hyprlock), **idle/lock/suspend** (hypridle), generated **GTK3/GTK4 theme** "Tahoe".
 
 ### Shortcuts · Kısayollar (`⌘` = Super)

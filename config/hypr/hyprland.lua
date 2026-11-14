@@ -18,6 +18,7 @@ hl.on("hyprland.start", function()
   hl.exec_cmd("waybar")
   hl.exec_cmd("hypridle -c " .. home .. "/.config/hypr/hypridle.conf")
   hl.exec_cmd("swaync")
+  hl.exec_cmd("tahoe-tray-assist")
   hl.exec_cmd("tahoe-dock")
   hl.exec_cmd("systemctl --user start hyprpolkitagent")
   hl.exec_cmd("tahoe-firstrun")
@@ -102,11 +103,10 @@ hl.animation({ leaf = "fade",       enabled = true, speed = 4, bezier = "macIn" 
 hl.animation({ leaf = "workspaces", enabled = true, speed = 5, bezier = "mac", style = "slide" })
 
 -- Cam efekti: bar, dock, menü, bildirimler bulanık
-for _, ns in ipairs({ "waybar", "rofi", "swaync-control-center", "swaync-notification-window", "nwg-dock" }) do
+for _, ns in ipairs({ "waybar", "rofi", "swaync-control-center", "swaync-notification-window", "nwg-dock", "tahoe-cc" }) do
   hl.layer_rule({ name = "blur-" .. ns, match = { namespace = ns }, blur = true, ignore_alpha = 0.2 })
 end
 
 -- Tahoe uygulamaları
 hl.window_rule({ name = "tahoe-settings", match = { class = "^org.tahoe.Settings$" }, float = true, size = "1000 700", center = true })
-hl.window_rule({ name = "tahoe-cc", match = { class = "^org.tahoe.ControlCenter$" }, float = true, size = "361 520", move = "monitor_w-369 44" })
 hl.window_rule({ name = "float-utils", match = { class = "^(pavucontrol|nm-connection-editor|system-config-printer)$" }, float = true, center = true })
