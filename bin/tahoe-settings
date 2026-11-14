@@ -960,7 +960,7 @@ window:backdrop button.tl { background-color: rgba(128,128,136,0.45); }
 CC_CSS = b"""
 window.tahoe-cc-win { background: transparent; box-shadow: none; }
 window.tahoe-catcher { background: rgba(0,0,0,0.01); box-shadow: none; }
-.tahoe-cc-box { background-color: rgba(34,34,40,0.78); border-radius: 20px; border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 14px 40px rgba(0,0,0,0.45); }
+.tahoe-cc-box { background-color: rgb(30,30,36); padding: 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 14px 40px rgba(0,0,0,0.45); }
 .tahoe-cc-box togglebutton:checked { background-color: @accent_bg_color; color: #fff; border-color: transparent; }
 """
 
@@ -1038,7 +1038,7 @@ class ControlCenter(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title='Denetim Merkezi', default_width=360, decorated=False, resizable=False)
         self.add_css_class('tahoe-cc-win')
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=14, margin_bottom=14, margin_start=14, margin_end=14)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         outer.add_css_class('tahoe-cc-box')
         grid = Gtk.Grid(column_spacing=10, row_spacing=10, column_homogeneous=True)
         wifi = sh('nmcli radio wifi') == 'enabled'; bt = 'Powered: yes' in sh('bluetoothctl show')
