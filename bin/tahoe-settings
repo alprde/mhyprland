@@ -1065,6 +1065,43 @@ class SettingsWindow(Adw.ApplicationWindow):
                 self.lb.select_row(self.lb.get_row_at_index(i)); return
 
 # ───────────────────────── Denetim Merkezi ─────────────────────────
+class PillSlider(Gtk.DrawingArea):
+    """macOS Denetim Merkezi kaydırıcısı: beyaz dolgu, yuvarlak dolgunun İÇİNDE sağ ucuna yaslı (en az 1 yuvarlak görünür)."""
+    D = 28
+
+    def __init__(self, cb):
+        super().__init__()
+        self.cb = cb; self.v = 0.0; self._x0 = 0.0
+        self.set_content_height(self.D); self.set_hexpand(True); self.set_draw_func(self.draw)
+        g = Gtk.GestureDrag(); g.connect('drag-begin', lambda g_, x, y: (setattr(self, '_x0', x), self._set_from_x(x)))
+        g.connect('drag-update', lambda g_, dx, dy: self._set_from_x(self._x0 + dx)); self.add_controller(g)
+
+    def set_value(self, v):          # programatik: geri çağırma YOK
+        self.v = max(0.0, min(100.0, float(v))); self.queue_draw()
+
+    def get_value(self): return self.v
+
+    def _set_from_x(self, x):
+        w = max(1, self.get_width()); d = self.D
+        v = max(0.0, min(100.0, (x - d / 2) / max(1, (w - d)) * 100))
+        changed = int(v) != int(self.v); self.v = v; self.queue_draw()
+        if changed: self.cb(v)
+
+    @staticmethod
+    def _pill(cr, x, y, w, h):
+        import math
+        r = h / 2
+        cr.new_sub_path(); cr.arc(x + w - r, y + r, r, -math.pi / 2, math.pi / 2); cr.arc(x + r, y + r, r, math.pi / 2, 3 * math.pi / 2); cr.close_path()
+
+    def draw(self, area, cr, w, h):
+        import math
+        d = self.D; dark = S['dark']
+        self._pill(cr, 0, 0, w, h); cr.set_source_rgba(1, 1, 1, 0.18) if dark else cr.set_source_rgba(0, 0, 0, 0.12); cr.fill()
+        fe = d + self.v / 100 * (w - d)                       # dolgunun sağ ucu
+        self._pill(cr, 0, 0, fe, h); cr.set_source_rgb(1, 1, 1); cr.fill()
+        cr.arc(fe - d / 2, h / 2, d / 2 - 0.5, 0, 2 * math.pi); cr.set_source_rgba(0, 0, 0, 0.14); cr.set_line_width(1); cr.stroke()   # yuvarlak (ince halka)
+
+
 def fetch_state():
     """Panelin gösterdiği sistem durumu: paralel sorgular, her biri en çok 2 sn."""
     from concurrent.futures import ThreadPoolExecutor
@@ -1164,8 +1201,7 @@ class ControlCenter(Gtk.ApplicationWindow):
             card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8); card.add_css_class('cc-card')
             t = Gtk.Label(label=title, xalign=0); t.add_css_class('cc-title'); card.append(t)
             h = Gtk.Box(spacing=10); ov = Gtk.Overlay(hexpand=True)
-            sc = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1); sc.set_draw_value(False); sc.add_css_class('cc-slider')
-            sc.connect('value-changed', lambda w: None if self._upd else cb(w.get_value()))
+            sc = PillSlider(lambda v: cb(v))
             ov.set_child(sc)
             ic = Gtk.Image.new_from_icon_name(icon); ic.set_pixel_size(16); ic.set_halign(Gtk.Align.START); ic.set_valign(Gtk.Align.CENTER)
             ic.set_margin_start(10); ic.set_can_target(False); ic.add_css_class('cc-slider-icon'); ov.add_overlay(ic)
