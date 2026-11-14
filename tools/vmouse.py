@@ -42,6 +42,8 @@ try:
         tx, ty = map(float, arg.split(','))
         ok = goto(tx, ty)
         print('moved', arg, 'ok' if ok else 'approx', pos(), flush=True)
+        if os.environ.get('CLICK'):
+            time.sleep(0.3); emit(EV_KEY, 0x110, 1); emit(EV_SYN, 0, 0); time.sleep(0.08); emit(EV_KEY, 0x110, 0); emit(EV_SYN, 0, 0)
         time.sleep(float(os.environ.get('HOLD', '1.2')))
         if os.environ.get('SHOT'):
             subprocess.run(['grim', '-o', 'eDP-1', os.environ['SHOT'].replace('%', arg.replace(',', '_'))])

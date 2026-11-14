@@ -108,5 +108,5 @@ end
 
 -- Tahoe uygulamaları
 hl.window_rule({ name = "tahoe-settings", match = { class = "^org.tahoe.Settings$" }, float = true, size = "1000 700", center = true })
-hl.window_rule({ name = "tahoe-cc", match = { class = "^org.tahoe.ControlCenter$" }, float = true, size = "360 480", move = "monitor_w-380 40", no_anim = true })
+hl.window_rule({ name = "tahoe-cc", match = { class = "^org.tahoe.ControlCenter$" }, float = true, size = "361 520", move = "monitor_w-369 44" })
 hl.window_rule({ name = "float-utils", match = { class = "^(pavucontrol|nm-connection-editor|system-config-printer)$" }, float = true, center = true })

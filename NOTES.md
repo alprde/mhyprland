@@ -46,6 +46,7 @@ The Apple menu, app menu, Recent Items and Force Quit are rofi `-dmenu` lists wi
 17. **Turkish/localized dates in the native clock need the `L` modifier**: `"format": "{:L%a %e %b  %H:%M}"` plus `"locale": "tr_TR.utf8"`. Without `L` it stays English.
 18. **Icon glyph centering:** Nerd Font (non-Mono) glyphs are wider than their advance and overflow to the right of the hover box. Use the *Mono* family (`JetBrainsMono NFM`) for icon-only modules and a bigger `font-size` to compensate; for text+icon (battery) wrap the icon in `<span font='JetBrainsMono NFM 12'>`. Keep the bar `height` ≥ the modules' minimum (waybar warns otherwise).
 19. **GTK3 CSS (waybar) rejects `filter:` and `-gtk-icon-size`.** The theme generator strips `-gtk-icon-size` from the GTK3 file.
+20. **Window-rule `move` + `size` must use the window's real size.** The Control Center rule said `size 360 480` but GTK needed 361×520; Hyprland positioned it for 480 and the window then grew from the centre, ending 20 px *higher* — under the 37 px bar. Match the rule size to the real size (`361 520`) and anchor with `monitor_w-369 44` (just below the bar). Also avoid `no_anim` on translucent blurred windows if you see leftover frames on close.
 
 ## Testing
 
@@ -55,7 +56,7 @@ The Apple menu, app menu, Recent Items and Force Quit are rofi `-dmenu` lists wi
   then `Hyprland --verify-config -c "$HOME/.config/hypr/hyprland.lua"` (with that HOME).
   **Unset `HYPRLAND_INSTANCE_SIGNATURE`** or the sandbox run would kill/restart your real waybar/dock.
 - Build every Settings pane headlessly (catches exceptions): import the file with `SourceFileLoader`, create `TahoeApp('settings', None)` and call each `PANES[i][3]()` inside an `activate` handler.
-- **Real hover/pointer testing:** `tools/vmouse.py x,y …` creates a virtual relative mouse through `/dev/uinput` (needs write access, e.g. an ACL for your user) and moves the pointer to global logical coordinates with real motion events (`SHOT=/path/hv_%.png` takes a screenshot at each stop). `hyprctl dispatch 'hl.dsp.cursor.move(…)'` moves the cursor but does **not** trigger hover in layer surfaces like waybar.
+- **Real hover/pointer testing:** `tools/vmouse.py x,y …` creates a virtual relative mouse through `/dev/uinput` (needs write access, e.g. an ACL for your user) and moves the pointer to global logical coordinates with real motion events (`SHOT=/path/hv_%.png` takes a screenshot at each stop; `CLICK=1` sends a left click at each stop). `hyprctl dispatch 'hl.dsp.cursor.move(…)'` moves the cursor but does **not** trigger hover in layer surfaces like waybar.
 - Screenshots: `grim -o <output> out.png` on an empty workspace so no private content is captured; crop with ImageMagick.
 
 ## Roadmap / ideas
