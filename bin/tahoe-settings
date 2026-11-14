@@ -1080,6 +1080,17 @@ class ControlCenter(Gtk.ApplicationWindow):
 
     def build_ui(self):
         """macOS Denetim Merkezi düzeni: bağlantı kartı, Rahatsız Etme, küçük kartlar, ekran/ses kaydırıcıları, çalan müzik."""
+        # Tüm dış sorgular paralel ve 2 sn zaman aşımıyla: tek bir yavaş komut paneli bekletmesin
+        from concurrent.futures import ThreadPoolExecutor
+        _q = {'wifi': 'nmcli radio wifi', 'bt': 'bluetoothctl show',
+              'ssid': "LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | head -1 | cut -d: -f2",
+              'prof': 'powerprofilesctl get', 'dnd': 'swaync-client -D', 'br': 'brightnessctl -m | cut -d, -f4',
+              'vol': 'wpctl get-volume @DEFAULT_AUDIO_SINK@', 'title': 'playerctl metadata title 2>/dev/null',
+              'artist': 'playerctl metadata artist 2>/dev/null', 'art': 'playerctl metadata mpris:artUrl 2>/dev/null',
+              'pstat': 'playerctl status 2>/dev/null'}
+        with ThreadPoolExecutor(10) as _ex:
+            _f = {k: _ex.submit(sh, c, 2) for k, c in _q.items()}
+            D = {k: f.result() for k, f in _f.items()}
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         outer.add_css_class('tahoe-cc-box')
         self.rows = {}
@@ -1113,9 +1124,9 @@ class ControlCenter(Gtk.ApplicationWindow):
         top = Gtk.Box(spacing=12, homogeneous=True)
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4); left.add_css_class('cc-card')
 
-        st = {'wifi': sh('nmcli radio wifi') == 'enabled', 'bt': 'Powered: yes' in sh('bluetoothctl show')}
+        st = {'wifi': D['wifi'] == 'enabled', 'bt': 'Powered: yes' in D['bt']}
         def ssid(): return sh("LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | head -1 | cut -d: -f2") or ('Bağlı değil' if st['wifi'] else 'Kapalı')
-        wb, wc, ws = row('network-wireless-symbolic', 'Wi-Fi', ssid(), st['wifi'], lambda: None)
+        wb, wc, ws = row('network-wireless-symbolic', 'Wi-Fi', (D['ssid'] or ('Bağlı değil' if st['wifi'] else 'Kapalı')), st['wifi'], lambda: None)
         def wifi_toggle():
             st['wifi'] = not st['wifi']; set_on(wc, st['wifi']); ws.set_text('Açılıyor…' if st['wifi'] else 'Kapalı')
             bg(lambda: (sh(f'nmcli radio wifi {"on" if st["wifi"] else "off"}'), time.sleep(2.5), ssid())[2], lambda v: ws.set_text(v or ''))
@@ -1127,7 +1138,7 @@ class ControlCenter(Gtk.ApplicationWindow):
         bb.connect('clicked', lambda *_: bt_toggle())
         profs = ['power-saver', 'balanced', 'performance']; pnames = ['Tasarruf', 'Dengeli', 'Performans']
         picons = ['power-profile-power-saver-symbolic', 'power-profile-balanced-symbolic', 'power-profile-performance-symbolic']
-        cur = sh('powerprofilesctl get') or 'balanced'; pi = [profs.index(cur) if cur in profs else 1]
+        cur = D['prof'] or 'balanced'; pi = [profs.index(cur) if cur in profs else 1]
         pb, pc, ps = row(picons[pi[0]], 'Güç Modu', pnames[pi[0]], pi[0] != 1, lambda: None)
         def prof_cycle():
             pi[0] = (pi[0] + 1) % 3; ps.set_text(pnames[pi[0]]); set_on(pc, pi[0] != 1)
@@ -1137,7 +1148,7 @@ class ControlCenter(Gtk.ApplicationWindow):
         top.append(left)
 
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        dnd = sh('swaync-client -D') == 'true'; dst = [dnd]
+        dnd = D['dnd'] == 'true'; dst = [dnd]
         db = Gtk.Button(); db.add_css_class('cc-card'); db.add_css_class('cc-tilebtn'); db.set_focusable(False)
         dh = Gtk.Box(spacing=10); dc = circle('weather-clear-night-symbolic', dnd); dv, _s = label_box('Rahatsız\nEtme'); dh.append(dc); dh.append(dv); db.set_child(dh)
         def dnd_toggle():
@@ -1176,18 +1187,18 @@ class ControlCenter(Gtk.ApplicationWindow):
             if extra is not None: h.append(extra)
             card.append(h)
             return card
-        try: br = int(sh('brightnessctl -m | cut -d, -f4').strip('%') or 100)
+        try: br = int(D['br'].strip('%') or 100)
         except Exception: br = 100
         outer.append(slider_card('Ekran', 'display-brightness-symbolic', br, lambda v: bg_run(f'brightnessctl set {max(1, int(v))}%')))
         outb = Gtk.Button(); outb.add_css_class('cc-circle'); outb.add_css_class('cc-roundbtn'); outb.set_focusable(False); outb.set_size_request(36, 36)
         outb.set_child(Gtk.Image.new_from_icon_name('audio-speakers-symbolic')); outb.connect('clicked', lambda *_: (bg_run('tahoe-settings --pane sound'), self.quit_cc()))
-        outer.append(slider_card('Ses', 'audio-volume-high-symbolic', wp_get('@DEFAULT_AUDIO_SINK@')[0], lambda v: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SINK@ {int(v)}%'), outb))
+        outer.append(slider_card('Ses', 'audio-volume-high-symbolic', (float(re.search(r'([0-9.]+)', D['vol']).group(1)) * 100 if re.search(r'([0-9.]+)', D['vol']) else 0), lambda v: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SINK@ {int(v)}%'), outb))
 
         # ── Şimdi çalıyor ──
-        title = sh('playerctl metadata title 2>/dev/null'); artist = sh('playerctl metadata artist 2>/dev/null')
+        title = D['title']; artist = D['artist']
         if title:
             np_ = Gtk.Box(spacing=12); np_.add_css_class('cc-card')
-            art = sh('playerctl metadata mpris:artUrl 2>/dev/null')
+            art = D['art']
             if art.startswith('file://') and os.path.exists(art[7:]):
                 pic = Gtk.Picture.new_for_filename(art[7:]); pic.set_content_fit(Gtk.ContentFit.COVER)
             else:
@@ -1197,7 +1208,7 @@ class ControlCenter(Gtk.ApplicationWindow):
             tl = Gtk.Label(label=title, xalign=0, ellipsize=3, max_width_chars=18); tl.add_css_class('cc-title'); v.append(tl)
             al = Gtk.Label(label=artist, xalign=0, ellipsize=3, max_width_chars=22); al.add_css_class('cc-sub'); v.append(al)
             np_.append(v)
-            playing = sh('playerctl status 2>/dev/null') == 'Playing'
+            playing = D['pstat'] == 'Playing'
             pp = Gtk.Button(icon_name='media-playback-pause-symbolic' if playing else 'media-playback-start-symbolic'); pp.add_css_class('cc-media'); pp.set_focusable(False)
             def toggle_pp():
                 bg_run('playerctl play-pause'); pp.set_icon_name('media-playback-start-symbolic' if pp.get_icon_name() == 'media-playback-pause-symbolic' else 'media-playback-pause-symbolic')
