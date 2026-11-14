@@ -17,13 +17,13 @@ No third-party themes: the GTK theme, the System Settings app, the Apple menu, t
 ## Install · Kurulum
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/alprde/tahoe-hyprland/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/alprde/mhyprland/main/install.sh)
 ```
 
 or from a clone · ya da klonlayarak:
 
 ```bash
-git clone https://github.com/alprde/tahoe-hyprland && cd tahoe-hyprland
+git clone https://github.com/alprde/mhyprland && cd mhyprland
 ./install.sh            # --dry-run to preview · --no-packages · --yes · --uninstall
 ```
 

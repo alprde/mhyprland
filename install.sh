@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Tahoe Hyprland installer / Tahoe Hyprland kurulum betiği
 #
-#   bash <(curl -fsSL https://raw.githubusercontent.com/alprde/tahoe-hyprland/main/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/alprde/mhyprland/main/install.sh)
 #
 # or from a clone:  ./install.sh [--no-packages] [--dry-run] [--yes] [--uninstall]
 set -euo pipefail
 
-REPO_URL="${TAHOE_REPO:-https://github.com/alprde/tahoe-hyprland.git}"
+REPO_URL="${TAHOE_REPO:-https://github.com/alprde/mhyprland.git}"
 SRC_CLONE="$HOME/.local/share/tahoe-hyprland-src"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$HOME/.config-backup-tahoe-$STAMP"
