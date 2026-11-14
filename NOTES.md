@@ -47,6 +47,8 @@ The Apple menu, app menu, Recent Items and Force Quit are rofi `-dmenu` lists wi
 18. **Icon glyph centering:** Nerd Font (non-Mono) glyphs are wider than their advance and overflow to the right of the hover box. Use the *Mono* family (`JetBrainsMono NFM`) for icon-only modules and a bigger `font-size` to compensate; for text+icon (battery) wrap the icon in `<span font='JetBrainsMono NFM 12'>`. Keep the bar `height` ≥ the modules' minimum (waybar warns otherwise).
 19. **GTK3 CSS (waybar) rejects `filter:` and `-gtk-icon-size`.** The theme generator strips `-gtk-icon-size` from the GTK3 file.
 20. **Window-rule `move` + `size` must use the window's real size.** The Control Center rule said `size 360 480` but GTK needed 361×520; Hyprland positioned it for 480 and the window then grew from the centre, ending 20 px *higher* — under the 37 px bar. Match the rule size to the real size (`361 520`) and anchor with `monitor_w-369 44` (just below the bar). Also avoid `no_anim` on translucent blurred windows if you see leftover frames on close.
+21. **Control Center switching.** Clicking another bar icon first steals focus (→ the panel would close) and *then* spawns a second `tahoe-settings --control-center --from <icon>`. The panel therefore delays its focus-loss close by 900 ms; the second instance does not kill it but sends `SIGUSR1` (label in `$XDG_RUNTIME_DIR/tahoe-cc.req`): a different label keeps it open, the same label closes it (toggle).
+22. **Tray items:** the visible node is the `image`, not the container. Style `#tray image` (margin/padding/radius) and hover via `#tray image:hover`; styling `#tray > *` leaves a full-height hover box.
 
 ## Testing
 

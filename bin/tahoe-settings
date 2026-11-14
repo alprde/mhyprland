@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tahoe Sistem Ayarları + Denetim Merkezi (GTK4 / libadwaita)."""
-import gi, json, os, re, subprocess, threading, sys, shutil, glob, time
+import gi, json, os, re, subprocess, threading, sys, shutil, glob, time, signal
 gi.require_version('Gtk', '4.0'); gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 
@@ -96,18 +96,21 @@ def apply_theme():
     ov = p['OV']
     open(f'{HOME}/.config/waybar/style.css', 'w').write(f'''* {{ font-family: "Inter", "JetBrainsMono NFM", "JetBrainsMono Nerd Font"; font-size: 13px; font-weight: 500; border: none; border-radius: 0; min-height: 0; }}
 window#waybar {{ background: {p['PANEL']}; color: {p['FG']}; border-bottom: 1px solid rgba({ov},0.08); }}
-#clock.apple, #window, #tray, #pulseaudio, #network, #battery, #clock.time, #clock.notif, #clock.spotlight, #clock.control, #bluetooth {{ margin: 3px 1px; border-radius: 6px; }}
+#clock.apple, #window, #pulseaudio, #network, #battery, #clock.time, #clock.notif, #clock.spotlight, #clock.control, #bluetooth {{ margin: 3px 1px; border-radius: 6px; }}
 #clock.apple {{ padding: 0 10px; }}
 #window {{ font-weight: 700; padding: 0 8px; }}
 #workspaces {{ margin-left: 10px; }}
 #workspaces button {{ padding: 0 4px; color: rgba({ov},0.45); font-size: 9px; background: transparent; }}
 #workspaces button.active {{ color: {p['FG']}; }}
 #workspaces button:hover {{ background: rgba({ov},0.12); border-radius: 8px; }}
-#tray, #pulseaudio, #network, #battery, #clock.time, #clock.notif, #clock.spotlight, #clock.control, #bluetooth {{ padding: 0 8px; }}
+#pulseaudio, #network, #battery, #clock.time, #clock.notif, #clock.spotlight, #clock.control, #bluetooth {{ padding: 0 8px; }}
 #clock.apple, #clock.spotlight, #clock.control, #clock.notif, #network, #pulseaudio, #bluetooth {{ font-family: "JetBrainsMono NFM", "Inter"; min-width: 22px; font-size: 20px; }}
 #network, #pulseaudio {{ font-size: 23px; }}
 #clock.time {{ font-weight: 600; }}
-#clock.apple:hover, #window:hover, #clock.spotlight:hover, #clock.control:hover, #network:hover, #pulseaudio:hover, #battery:hover, #clock.time:hover, #clock.notif:hover, #tray:hover {{ background: rgba({ov},0.14); }}
+#clock.apple:hover, #window:hover, #clock.spotlight:hover, #clock.control:hover, #network:hover, #pulseaudio:hover, #battery:hover, #clock.time:hover, #clock.notif:hover {{ background: rgba({ov},0.14); }}
+#tray {{ margin: 0 2px; padding: 0; }}
+#tray image {{ margin: 3px 1px; padding: 0 7px; border-radius: 6px; }}
+#tray *:hover image, #tray image:hover {{ background: rgba({ov},0.14); }}
 #battery.warning {{ color: #ff9f0a; }} #battery.critical {{ color: #ff453a; }}
 tooltip {{ background: {p['TIP']}; border-radius: 12px; border: 1px solid rgba({ov},0.1); }}
 tooltip label {{ color: {p['FG']}; }}
@@ -1064,15 +1067,33 @@ class ControlCenter(Adw.ApplicationWindow):
         btn = Gtk.Button(label='Sistem Ayarları…'); btn.connect('clicked', lambda *_: (bg_run('tahoe-settings'), app.quit()))
         outer.append(btn)
         self.set_content(outer)
+        self.label = CC_LABEL[0]; self._close_id = None; self._opened = time.time()
         self.connect('notify::is-active', self.on_active)
         self._armed = False
         GLib.timeout_add(600, lambda: (setattr(self, '_armed', True), False)[1])
+        # Çubuktaki başka bir simgeye tıklanınca (ikinci örnek SIGUSR1 gönderir) menü açık kalır; aynı simgeyse kapanır
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, self.on_signal)
+
+    def cancel_close(self):
+        if self._close_id: GLib.source_remove(self._close_id); self._close_id = None
+
+    def on_signal(self):
+        try: new = open(CC_REQ).read().strip()
+        except Exception: new = 'control'
+        if new == self.label and time.time() - self._opened > 0.5:
+            APP.quit(); return False
+        self.label = new; self.cancel_close(); self.present()
+        return True
 
     def on_active(self, w, _):
-        if self._armed and not self.is_active():
-            APP.quit()
+        if self.is_active(): self.cancel_close(); return
+        if self._armed and not self._close_id:
+            # Odak çubuğa geçti olabilir: ikinci örneğin gelmesi için süre tanı
+            self._close_id = GLib.timeout_add(900, lambda: (APP.quit(), False)[1])
 
 APP = None
+CC_LABEL = ['control']
+CC_REQ = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'tahoe-cc.req')
 
 class TahoeApp(Adw.Application):
     def __init__(self, mode, pane):
@@ -1125,6 +1146,7 @@ def main():
         apply_theme(); return
     mode = 'cc' if '--control-center' in args else 'settings'
     if mode == 'cc':
+        CC_LABEL[0] = args[args.index('--from') + 1] if '--from' in args else 'control'
         me = os.getpid()
         others = []
         for d in os.listdir('/proc'):
@@ -1134,8 +1156,10 @@ def main():
             if len(argv) > 2 and os.path.basename(argv[0].decode(errors='ignore')).startswith('python') and argv[1].decode(errors='ignore').endswith('tahoe-settings') and b'--control-center' in argv:
                 others.append(int(d))
         if others:
+            try: open(CC_REQ, 'w').write(CC_LABEL[0])
+            except Exception: pass
             for p in others:
-                try: os.kill(p, 15)
+                try: os.kill(p, signal.SIGUSR1)
                 except Exception: pass
             return
     pane = args[args.index('--pane') + 1] if '--pane' in args else None
