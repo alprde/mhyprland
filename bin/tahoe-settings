@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Tahoe Sistem Ayarları + Denetim Merkezi (GTK4 / libadwaita)."""
-import os as _os, sys as _sys, glob as _glob
+import os as _os, sys as _sys, glob as _glob, signal as _sg
+if '--control-center' in _sys.argv:
+    # Panel açılırken (~1 sn) gelen ikinci tıklama bu süreci SIGUSR1 ile öldürmesin; işleyici hazır olunca devreye girer
+    _sg.signal(_sg.SIGUSR1, _sg.SIG_IGN)
 if '--control-center' in _sys.argv and 'libgtk4-layer-shell' not in _os.environ.get('LD_PRELOAD', ''):
     # gtk4-layer-shell, libwayland'den ÖNCE yüklenmeli: kendimizi LD_PRELOAD ile yeniden başlat
     _libs = _glob.glob('/usr/lib/libgtk4-layer-shell.so*') + _glob.glob('/usr/lib64/libgtk4-layer-shell.so*') + _glob.glob('/usr/lib/*/libgtk4-layer-shell.so*')
