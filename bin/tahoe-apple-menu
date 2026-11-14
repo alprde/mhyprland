@@ -1,6 +1,6 @@
 #!/bin/bash
 # macOS  menüsü (rofi ile)
-sep() { printf '%s\0nonselectable\x1ftrue\n' '────────────────────'; }
+sep() { printf '<span size="2pt" alpha="22%%">%s</span>\0nonselectable\x1ftrue\n' '────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────'; }
 item() { printf '%s  <span alpha="45%%">%s</span>\n' "$1" "$2"; }
 confirm() { # $1 soru
   r=$(printf 'Vazgeç\n%s\n' "$2" | rofi -dmenu -i -p "" -mesg "$1" -theme ~/.config/rofi/apple.rasi -theme-str 'window {width: 320px;} listview {lines: 2;}')

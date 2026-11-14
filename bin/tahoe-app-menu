@@ -5,11 +5,11 @@ cls=$(echo "$w" | jq -r '.class // ""'); pid=$(echo "$w" | jq -r '.pid // 0')
 [ -z "$cls" ] && cls=Finder
 choice=$( {
   printf '%s\n' "$cls Hakkında" "Ayarlar…"
-  printf '%s\0nonselectable\x1ftrue\n' '────────────────────'
+  printf '<span size="2pt" alpha="22%%">%s</span>\0nonselectable\x1ftrue\n' '────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────'
   printf '%s\n' "$cls Uygulamasını Gizle" "Diğerlerini Gizle"
-  printf '%s\0nonselectable\x1ftrue\n' '────────────────────'
+  printf '<span size="2pt" alpha="22%%">%s</span>\0nonselectable\x1ftrue\n' '────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────'
   printf '%s\n' "Pencereyi Küçült" "Yakınlaştır (Tam Ekran)" "Yüzen Pencere" "Pencereyi Kapat" "$cls Uygulamasından Çık"
-} | rofi -dmenu -i -no-custom -p "" -theme ~/.config/rofi/apple.rasi -theme-str 'window {x-offset: 70px;}')
+} | rofi -dmenu -i -markup-rows -no-custom -p "" -theme ~/.config/rofi/apple.rasi -theme-str 'window {x-offset: 70px;}')
 case "$choice" in
   *Hakkında) exec tahoe-settings --pane general ;;
   "Ayarlar…") exec tahoe-settings ;;
