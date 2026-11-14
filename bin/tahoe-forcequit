@@ -1,0 +1,10 @@
+#!/bin/bash
+# Uygulamaları Zorla Kapat
+list=$(hyprctl clients -j | jq -r '.[] | "\(.class) — \(.title[0:50])\t\(.pid)"')
+[ -z "$list" ] && exit 0
+sel=$(printf '%s\n' "$list" | cut -f1 | rofi -dmenu -i -p "" -mesg "Zorla Çık" -theme ~/.config/rofi/apple.rasi -theme-str 'window {width: 480px;}' -format i)
+[ -z "$sel" ] && exit 0
+pid=$(printf '%s\n' "$list" | sed -n "$((sel+1))p" | cut -f2)
+name=$(printf '%s\n' "$list" | sed -n "$((sel+1))p" | cut -f1)
+r=$(printf 'Vazgeç\nZorla Çık\n' | rofi -dmenu -p "" -mesg "“$name” zorla kapatılsın mı?" -theme ~/.config/rofi/apple.rasi -theme-str 'window {width: 400px;} listview {lines: 2;}')
+[ "$r" = "Zorla Çık" ] && kill -9 "$pid"

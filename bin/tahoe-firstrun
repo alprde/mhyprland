@@ -1,0 +1,6 @@
+#!/bin/sh
+# İlk Hyprland açılışında: gerçek ekranlara göre ayarları üretir ve temayı uygular.
+M="$HOME/.config/tahoe/.firstrun-done"
+[ -f "$M" ] && exit 0
+sleep 2
+tahoe-settings --apply && touch "$M"

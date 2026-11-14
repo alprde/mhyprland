@@ -1,0 +1,21 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 30,
+  "modules-left": ["custom/apple", "hyprland/window", "hyprland/workspaces"],
+  "modules-center": [],
+  "modules-right": ["tray", "battery", "network", "pulseaudio", "custom/spotlight", "custom/control", "custom/clock", "custom/notif"],
+
+  "custom/apple": { "format": "", "tooltip": false, "on-click": "tahoe-apple-menu" },
+  "hyprland/window": { "format": "{class}", "max-length": 40, "separate-outputs": true, "rewrite": { "": "Finder", "^org\\.tahoe\\.Settings$": "Sistem Ayarları", "^org\\.tahoe\\.ControlCenter$": "Denetim Merkezi", "^kitty$": "Terminal", "^(firefox|zen)$": "Safari", "^org\\.kde\\.dolphin$": "Finder", "^dolphin$": "Finder", "^pavucontrol$": "Ses Denetimi" }, "on-click": "tahoe-app-menu" },
+  "hyprland/workspaces": { "format": "{icon}", "format-icons": { "active": "", "default": "" }, "persistent-workspaces": { "*": 4 }, "on-click": "activate" },
+
+  "custom/clock": { "exec": "tahoe-clock", "interval": 5, "format": "{}", "tooltip": false, "on-click": "swaync-client -t -sw" },
+  "battery": { "format": "{capacity}% {icon}", "format-charging": "{capacity}% ", "format-icons": ["","","","",""], "tooltip-format": "{timeTo}", "on-click": "tahoe-settings --pane battery" },
+  "network": { "format-wifi": "", "format-ethernet": "", "format-disconnected": "", "tooltip-format": "{essid}  {signalStrength}%", "on-click": "tahoe-settings --pane wifi" },
+  "pulseaudio": { "format": "{icon}", "format-muted": "", "format-icons": { "default": ["","",""] }, "on-click": "tahoe-settings --pane sound", "scroll-step": 5 },
+  "custom/spotlight": { "format": "", "tooltip": false, "on-click": "rofi -show drun" },
+  "custom/control": { "format": "", "tooltip": false, "on-click": "pavucontrol" },
+  "custom/notif": { "format": "", "tooltip": false, "on-click": "swaync-client -t -sw" },
+  "tray": { "spacing": 10, "icon-size": 16 }
+}

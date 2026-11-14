@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=Tahoe
+Comment=macOS Tahoe tarzı koyu cam tema
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=Tahoe
+IconTheme=breeze-dark
+CursorTheme=capitaine-cursors

@@ -1,0 +1,17 @@
+#!/bin/bash
+# Son kullanılan dosyalar (recently-used.xbel) ve uygulamalar
+files=$(python3 -I - <<'PY'
+import re, os, urllib.parse
+p = os.path.expanduser('~/.local/share/recently-used.xbel')
+try: t = open(p, errors='ignore').read()
+except Exception: t = ''
+out = []
+for m in re.finditer(r'<bookmark href="([^"]+)"[^>]*modified="([^"]+)"', t):
+    out.append((m.group(2), urllib.parse.unquote(m.group(1)).replace('file://', '')))
+for _, f in sorted(out, reverse=True)[:15]:
+    if os.path.exists(f): print(f)
+PY
+)
+[ -z "$files" ] && files="(Son kullanılan öğe yok)"
+sel=$(printf '%s\n' "$files" | rofi -dmenu -i -p "" -mesg "Son Kullanılan Öğeler" -theme ~/.config/rofi/apple.rasi -theme-str 'window {width: 480px;}')
+[ -n "$sel" ] && [ -e "$sel" ] && exec xdg-open "$sel"

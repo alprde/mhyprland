@@ -1,0 +1,9 @@
+* { bg: #1e1e24b8; fg: #f5f5f7; sel: #0a84ffff; background-color: transparent; text-color: @fg; }
+configuration { font: "Inter 13"; }
+window { location: north west; anchor: north west; x-offset: 8px; y-offset: 36px; width: 300px; background-color: @bg; border: 1px; border-color: #ffffff22; border-radius: 14px; }
+mainbox { padding: 6px; children: [ message, listview ]; }
+message { padding: 6px 12px; }
+listview { lines: 16; dynamic: true; spacing: 0px; scrollbar: false; fixed-height: false; }
+element { padding: 5px 12px; border-radius: 7px; }
+element selected.normal { background-color: @sel; text-color: #ffffff; }
+element-text { vertical-align: 0.5; markup: true; }

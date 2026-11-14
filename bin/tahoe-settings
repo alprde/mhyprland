@@ -1,0 +1,1096 @@
+#!/usr/bin/env python3
+"""Tahoe Sistem Ayarları + Denetim Merkezi (GTK4 / libadwaita)."""
+import gi, json, os, re, subprocess, threading, sys, shutil, glob, time
+gi.require_version('Gtk', '4.0'); gi.require_version('Adw', '1')
+from gi.repository import Gtk, Adw, GLib, Gio, Gdk
+
+HOME = os.path.expanduser('~')
+CFG_DIR = f'{HOME}/.config/tahoe'
+CFG = f'{CFG_DIR}/settings.json'
+HYPR = f'{HOME}/.config/hypr'
+BASE_CSS = f'{HOME}/.local/share/tahoe/base.css'
+IN_HYPR = bool(os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'))
+
+# ───────────────────────── yardımcılar ─────────────────────────
+def sh(cmd, timeout=15):
+    try:
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        return (r.stdout or '').strip()
+    except Exception:
+        return ''
+
+def bg_run(cmd):
+    subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+def bg(fn, done=None):
+    def run():
+        try: r = fn()
+        except Exception: r = None
+        if done: GLib.idle_add(done, r)
+    threading.Thread(target=run, daemon=True).start()
+
+DEFAULTS = {
+    'dark': True, 'accent': '#0a84ff',
+    'dock': {'size': 48, 'autohide': True, 'position': 'bottom'},
+    'input': {'kb_layout': 'tr', 'natural_scroll_touchpad': True, 'natural_scroll_mouse': False,
+              'tap': True, 'sensitivity': 0.0, 'repeat_rate': 25, 'repeat_delay': 600, 'dwt': True},
+    'look': {'rounding': 16, 'blur': True, 'opacity': 0.96, 'animations': True},
+    'monitors': {}, 'arrange': 'left',
+    'idle': {'lock': 300, 'dpms': 330, 'suspend': 900},
+    'clock': {'h24': True, 'seconds': False, 'date': True},
+}
+
+def deep_merge(a, b):
+    for k, v in b.items():
+        if isinstance(v, dict) and isinstance(a.get(k), dict): deep_merge(a[k], v)
+        else: a[k] = v
+    return a
+
+def load():
+    s = json.loads(json.dumps(DEFAULTS))
+    try: deep_merge(s, json.load(open(CFG)))
+    except Exception: pass
+    return s
+
+S = load()
+
+def save():
+    os.makedirs(CFG_DIR, exist_ok=True)
+    json.dump(S, open(CFG, 'w'), indent=1)
+
+# ───────────────────────── tema üretimi ─────────────────────────
+def palette(dark):
+    return dict(
+        FG='#f5f5f7' if dark else '#1d1d1f', OV='255,255,255' if dark else '0,0,0',
+        PANEL='rgba(30,30,36,0.55)' if dark else 'rgba(246,246,250,0.62)',
+        DOCK='rgba(40,40,48,0.45)' if dark else 'rgba(255,255,255,0.45)',
+        ROFI='#1e1e24b8' if dark else '#f6f6fac8', SEL='#ffffff22' if dark else '#00000018',
+        TIP='rgba(30,30,36,0.92)' if dark else 'rgba(250,250,252,0.95)')
+
+def gtk_css(dark, accent):
+    css = open(BASE_CSS).read()
+    css = re.sub(r'(@define-color accent_(?:bg_)?color )#[0-9a-fA-F]{6};', lambda m: f'{m.group(1)}{accent};', css)
+    if not dark:
+        for a, b in [('rgba(36, 36, 42, 0.94)', 'rgba(246, 246, 248, 0.95)'), ('rgba(28, 28, 32, 0.90)', 'rgba(255, 255, 255, 0.92)'),
+                     ('rgba(46, 46, 54, 0.85)', 'rgba(255, 255, 255, 0.88)'), ('rgba(40, 40, 48, 0.80)', 'rgba(235, 235, 240, 0.85)'),
+                     ('rgba(44, 44, 52, 0.92)', 'rgba(250, 250, 252, 0.95)'), ('rgba(40, 40, 46, 0.90)', 'rgba(248, 248, 250, 0.94)'),
+                     ('rgba(30,30,36,0.92)', 'rgba(250,250,252,0.95)'), ('#f5f5f7', '#1d1d1f'), ('rgba(255,255,255,', 'rgba(0,0,0,')]:
+            css = css.replace(a, b)
+        # kaydırıcı/anahtar topuzları ve onay kutusu içi beyaz kalsın
+        css = css.replace('switch slider { border-radius: 50%; background-color: #fff;', 'switch slider { border-radius: 50%; background-color: #fff;')
+    return css
+
+def apply_theme():
+    dark, acc = S['dark'], S['accent']
+    css = gtk_css(dark, acc)
+    imp = 'gtk-contained-dark.css' if dark else 'gtk-contained.css'
+    for d in (f'{HOME}/.themes/Tahoe/gtk-3.0', f'{HOME}/.themes/Tahoe/gtk-4.0', f'{HOME}/.config/gtk-4.0'):
+        os.makedirs(d, exist_ok=True)
+    open(f'{HOME}/.themes/Tahoe/gtk-3.0/gtk.css', 'w').write(f'@import url("resource:///org/gtk/libgtk/theme/Adwaita/{imp}");\n' + css)
+    open(f'{HOME}/.themes/Tahoe/gtk-4.0/gtk.css', 'w').write(css)
+    open(f'{HOME}/.config/gtk-4.0/gtk.css', 'w').write(css)
+    if IN_HYPR:
+        sh(f"gsettings set org.gnome.desktop.interface color-scheme '{'prefer-dark' if dark else 'prefer-light'}'")
+        sh("gsettings set org.gnome.desktop.interface gtk-theme Tahoe")
+    p = palette(dark)
+    ov = p['OV']
+    open(f'{HOME}/.config/waybar/style.css', 'w').write(f'''* {{ font-family: "Inter", "JetBrainsMono Nerd Font"; font-size: 13px; font-weight: 500; border: none; border-radius: 0; min-height: 0; }}
+window#waybar {{ background: {p['PANEL']}; color: {p['FG']}; border-bottom: 1px solid rgba({ov},0.08); }}
+#custom-apple {{ font-size: 16px; padding: 0 14px; }}
+#window {{ font-weight: 700; padding: 0 6px; }}
+#workspaces {{ margin-left: 10px; }}
+#workspaces button {{ padding: 0 4px; color: rgba({ov},0.45); font-size: 9px; background: transparent; }}
+#workspaces button.active {{ color: {p['FG']}; }}
+#workspaces button:hover {{ background: rgba({ov},0.12); border-radius: 8px; }}
+#tray, #pulseaudio, #network, #battery, #custom-clock, #custom-notif, #custom-spotlight, #custom-control, #bluetooth {{ padding: 0 10px; }}
+#custom-spotlight, #custom-control, #network, #bluetooth {{ font-size: 14px; }}
+#custom-clock {{ font-weight: 600; }}
+#custom-apple:hover, #window:hover, #custom-spotlight:hover, #custom-control:hover, #network:hover, #pulseaudio:hover, #battery:hover, #custom-clock:hover, #custom-notif:hover {{ background: rgba({ov},0.12); border-radius: 6px; }}
+#battery.warning {{ color: #ff9f0a; }} #battery.critical {{ color: #ff453a; }}
+tooltip {{ background: {p['TIP']}; border-radius: 12px; border: 1px solid rgba({ov},0.1); }}
+tooltip label {{ color: {p['FG']}; }}
+''')
+    os.makedirs(f'{HOME}/.config/nwg-dock-hyprland', exist_ok=True)
+    open(f'{HOME}/.config/nwg-dock-hyprland/style.css', 'w').write(f'''window {{ background: {p['DOCK']}; border-radius: 24px; border: 1px solid rgba({ov},0.14); padding: 4px; }}
+#box {{ padding: 6px 10px; }}
+button, image {{ background: transparent; border: none; box-shadow: none; }}
+button {{ padding: 4px; margin: 0 3px; border-radius: 14px; }}
+button:hover {{ background: rgba({ov},0.14); }}
+#active {{ border-bottom: 3px solid rgba({ov},0.8); }}
+''')
+    open(f'{HOME}/.config/swaync/style.css', 'w').write(f'''* {{ font-family: "Inter"; }}
+.notification-row {{ outline: none; }}
+.notification {{ background: {p['DOCK'].replace('0.45','0.7')}; border: 1px solid rgba({ov},0.12); border-radius: 18px; margin: 8px 10px; padding: 4px; color: {p['FG']}; }}
+.control-center {{ background: {p['PANEL'].replace('0.55','0.75')}; border-radius: 22px; border: 1px solid rgba({ov},0.1); margin: 8px; color: {p['FG']}; }}
+''')
+    rc = f'{HOME}/.config/rofi/config.rasi'
+    if os.path.exists(rc):
+        t = open(rc).read()
+        t = re.sub(r'\* \{[^}]*\}', f'* {{ bg: {p["ROFI"]}; fg: {p["FG"]}; sel: {p["SEL"]}; background-color: transparent; text-color: @fg; }}', t, count=1)
+        open(rc, 'w').write(t)
+    ap = f'{HOME}/.config/rofi/apple.rasi'
+    if os.path.exists(ap):
+        t = open(ap).read()
+        t = re.sub(r'\* \{[^}]*\}', f'* {{ bg: {p["ROFI"]}; fg: {p["FG"]}; sel: {accent_alpha(acc)}; background-color: transparent; text-color: @fg; }}', t, count=1)
+        open(ap, 'w').write(t)
+    if IN_HYPR:
+        sh('pkill -SIGUSR2 waybar; swaync-client -rs >/dev/null 2>&1')
+        bg_run('tahoe-dock')
+
+def accent_alpha(acc):
+    return acc + 'ff'
+
+# ───────────────────────── Hyprland yapılandırma üretimi ─────────────────────────
+def get_monitors():
+    try: return json.loads(sh('hyprctl monitors -j'))
+    except Exception: return []
+
+def mon_cfg(m):
+    c = S['monitors'].get(m['name'])
+    if not c:
+        c = {'mode': f"{m['width']}x{m['height']}@{round(m['refreshRate'])}", 'scale': m['scale']}
+        S['monitors'][m['name']] = c
+    return c
+
+def logical(c):
+    w, h = c['mode'].split('@')[0].split('x')
+    w, h = int(int(w) / c['scale']), int(int(h) / c['scale'])
+    return (h, w) if c.get('transform', 0) in (1, 3) else (w, h)
+
+def compute_layout(mons=None):
+    mons = mons if mons is not None else get_monitors()
+    for m in mons: mon_cfg(m)
+    names = [m['name'] for m in mons if not S['monitors'][m['name']].get('disabled')]
+    prim = 'eDP-1' if 'eDP-1' in names else (names[0] if names else None)
+    ext = [n for n in names if n != prim]
+    pos = {}
+    arr = S['arrange']
+    if prim:
+        if arr in ('left', 'right', 'mirror'):
+            x = 0; order = ext + [prim] if arr == 'left' else [prim] + ext
+            for n in order:
+                pos[n] = (x, 0); x += logical(S['monitors'][n])[0]
+        else:
+            y = 0; order = ext + [prim] if arr == 'above' else [prim] + ext
+            for n in order:
+                pos[n] = (0, y); y += logical(S['monitors'][n])[1]
+    return names, prim, pos
+
+def apply_hypr():
+    mons = get_monitors()
+    allnames = [m['name'] for m in mons]
+    names, prim, pos = compute_layout(mons)
+    arr = S['arrange']
+    L = ['-- Tahoe Sistem Ayarları tarafından üretildi. Elle değiştirmeyin.']
+    for n in allnames:
+        c = S['monitors'][n]; x, y = pos.get(n, (0, 0)); tr = int(c.get('transform', 0))
+        if c.get('disabled'):
+            L.append(f'hl.monitor({{ output = "{n}", disabled = true }})')
+        elif arr == 'mirror' and n != prim:
+            L.append(f'hl.monitor({{ output = "{n}", mode = "{c["mode"]}", position = "auto", scale = {c["scale"]}, transform = {tr}, mirror = "{prim}" }})')
+        else:
+            L.append(f'hl.monitor({{ output = "{n}", mode = "{c["mode"]}", position = "{x}x{y}", scale = {c["scale"]}, transform = {tr} }})')
+    L.append('hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })')
+    i, lk = S['input'], S['look']
+    b = lambda v: 'true' if v else 'false'
+    L.append(f'''hl.config({{
+  input = {{ kb_layout = "{i['kb_layout']}", repeat_rate = {int(i['repeat_rate'])}, repeat_delay = {int(i['repeat_delay'])},
+    sensitivity = {i['sensitivity']:.2f}, natural_scroll = {b(i['natural_scroll_mouse'])},
+    touchpad = {{ natural_scroll = {b(i['natural_scroll_touchpad'])}, tap_to_click = {b(i['tap'])}, disable_while_typing = {b(i['dwt'])} }} }},
+  decoration = {{ rounding = {int(lk['rounding'])}, inactive_opacity = {lk['opacity']:.2f}, blur = {{ enabled = {b(lk['blur'])} }} }},
+  animations = {{ enabled = {b(lk['animations'])} }},
+  misc = {{ vrr = {1 if S.get('vrr') else 0} }},
+}})''')
+    open(f'{HYPR}/tahoe.lua', 'w').write('\n'.join(L) + '\n')
+    save()
+    if IN_HYPR: sh('hyprctl reload')
+
+_timer = None
+def schedule_apply():
+    global _timer
+    if _timer: GLib.source_remove(_timer)
+    def go():
+        global _timer
+        _timer = None
+        threading.Thread(target=apply_hypr, daemon=True).start()
+        return False
+    _timer = GLib.timeout_add(600, go)
+
+def write_idle():
+    t = S['idle']
+    open(f'{HYPR}/hypridle.conf', 'w').write(f'''general {{
+    lock_cmd = pidof hyprlock || hyprlock
+    before_sleep_cmd = loginctl lock-session
+    after_sleep_cmd = hyprctl dispatch 'hl.dsp.dpms({{ action = "on" }})'
+}}
+''' + ''.join(f'''
+listener {{
+    timeout = {int(v)}
+    on-timeout = {cmd}
+{extra}}}
+''' for v, cmd, extra in [
+        (t['lock'], 'loginctl lock-session', ''),
+        (t['dpms'], "hyprctl dispatch 'hl.dsp.dpms({ action = \"off\" })'", "    on-resume = hyprctl dispatch 'hl.dsp.dpms({ action = \"on\" })'\n"),
+        (t['suspend'], 'systemctl suspend', '')] if int(v) > 0))
+    save()
+    if IN_HYPR:
+        sh('pkill -x hypridle'); bg_run(f'hypridle -c {HYPR}/hypridle.conf')
+
+def write_clock():
+    c = S['clock']
+    fmt = ('%H:%M' if c['h24'] else '%I:%M %p') if not c['seconds'] else ('%H:%M:%S' if c['h24'] else '%I:%M:%S %p')
+    fmt = ('%a %e %b  ' if c['date'] else '') + fmt
+    open(f'{CFG_DIR}/clock.fmt', 'w').write(fmt)
+    save()
+
+# ───────────────────────── widget yardımcıları ─────────────────────────
+def grp(title=None, desc=None):
+    g = Adw.PreferencesGroup()
+    if title: g.set_title(title)
+    if desc: g.set_description(desc)
+    return g
+
+def r_switch(title, active, cb, sub=None):
+    r = Adw.SwitchRow(title=title)
+    if sub: r.set_subtitle(sub)
+    r.set_active(bool(active))
+    r.connect('notify::active', lambda w, _: cb(w.get_active()))
+    return r
+
+def r_combo(title, items, idx, cb, sub=None):
+    r = Adw.ComboRow(title=title)
+    if sub: r.set_subtitle(sub)
+    r.set_model(Gtk.StringList.new(list(items)))
+    r.set_selected(max(0, idx))
+    r.connect('notify::selected', lambda w, _: cb(w.get_selected()))
+    return r
+
+def r_scale(title, lo, hi, step, val, cb, digits=0, sub=None, unit=''):
+    r = Adw.ActionRow(title=title)
+    if sub: r.set_subtitle(sub)
+    sc = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, lo, hi, step)
+    sc.set_value(val); sc.set_size_request(260, -1); sc.set_valign(Gtk.Align.CENTER)
+    sc.set_draw_value(True); sc.set_digits(digits); sc.set_value_pos(Gtk.PositionType.RIGHT)
+    if unit: sc.set_format_value_func(lambda s, v: f'{v:.{digits}f}{unit}')
+    sc.connect('value-changed', lambda w: cb(w.get_value()))
+    r.add_suffix(sc)
+    return r
+
+def r_info(title, value):
+    r = Adw.ActionRow(title=title, subtitle=str(value))
+    r.set_subtitle_selectable(True)
+    return r
+
+def r_button(title, label, cb, sub=None, style=None):
+    r = Adw.ActionRow(title=title)
+    if sub: r.set_subtitle(sub)
+    b = Gtk.Button(label=label); b.set_valign(Gtk.Align.CENTER)
+    if style: b.add_css_class(style)
+    b.connect('clicked', lambda *_: cb())
+    r.add_suffix(b)
+    return r
+
+def r_spin(title, lo, hi, step, val, cb, sub=None):
+    r = Adw.SpinRow.new_with_range(lo, hi, step)
+    r.set_title(title)
+    if sub: r.set_subtitle(sub)
+    r.set_value(val)
+    r.connect('notify::value', lambda w, _: cb(w.get_value()))
+    return r
+
+def new_page(*groups):
+    p = Adw.PreferencesPage()
+    for g in groups: p.add(g)
+    return p
+
+def toast(msg):
+    w = APP.props.active_window if 'APP' in globals() and APP else None
+    if w and hasattr(w, 'toasts'): w.toasts.add_toast(Adw.Toast.new(msg))
+
+def spinner_row(text='Yükleniyor…'):
+    r = Adw.ActionRow(title=text)
+    sp = Gtk.Spinner(); sp.start(); r.add_suffix(sp)
+    return r
+
+def clear_group(g, rows):
+    for r in rows:
+        try: g.remove(r)
+        except Exception: pass
+
+# ───────────────────────── paneller ─────────────────────────
+def pane_wifi():
+    g1 = grp()
+    on = sh('nmcli radio wifi') == 'enabled'
+    def set_wifi(v):
+        bg_run(f'nmcli radio wifi {"on" if v else "off"}')
+        GLib.timeout_add(1500, lambda: (refresh(), False)[1])
+    g1.add(r_switch('Wi-Fi', on, set_wifi))
+    g2 = grp('Ağlar')
+    rows = [spinner_row('Ağlar taranıyor…')]
+    g2.add(rows[0])
+    def ask_pw(ssid):
+        d = Adw.AlertDialog(heading=f'“{ssid}” için parola', body='Ağ parolasını girin.')
+        e = Gtk.PasswordEntry(show_peek_icon=True); d.set_extra_child(e)
+        d.add_response('cancel', 'İptal'); d.add_response('ok', 'Bağlan')
+        d.set_response_appearance('ok', Adw.ResponseAppearance.SUGGESTED); d.set_default_response('ok')
+        def resp(dlg, r):
+            if r == 'ok':
+                pw = e.get_text().replace("'", "'\\''")
+                s = ssid.replace("'", "'\\''")
+                bg(lambda: sh(f"nmcli dev wifi connect '{s}' password '{pw}'", 40), lambda out: (toast(out.split('\n')[-1][:80] if out else 'Bağlanılamadı'), refresh()))
+        d.connect('response', resp); d.present(APP.props.active_window)
+    def connect(ssid, active):
+        s = ssid.replace("'", "'\\''")
+        if active:
+            bg(lambda: sh(f"nmcli con down id '{s}'"), lambda _: refresh()); return
+        def work():
+            return sh(f"nmcli dev wifi connect '{s}'", 40)
+        def done(out):
+            if out and 'successfully' not in out.lower() and ('secrets' in out.lower() or 'password' in out.lower() or 'no key' in out.lower()):
+                ask_pw(ssid)
+            else:
+                toast('Bağlandı' if out and 'successfully' in out.lower() else (out or 'Bağlanılamadı')[:80]); refresh()
+        toast(f'“{ssid}” bağlanıyor…'); bg(work, done)
+    def refresh():
+        def work(): return sh('nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list', 20)
+        def done(out):
+            clear_group(g2, rows); rows.clear()
+            seen = {}
+            for ln in (out or '').split('\n'):
+                f = re.split(r'(?<!\\):', ln)
+                if len(f) < 4 or not f[1]: continue
+                ssid = f[1].replace('\\:', ':')
+                cur = {'inuse': f[0] == '*', 'sig': int(f[2] or 0), 'sec': f[3]}
+                if ssid not in seen or cur['inuse'] or seen[ssid]['sig'] < cur['sig']: seen[ssid] = cur
+            for ssid, c in sorted(seen.items(), key=lambda kv: (not kv[1]['inuse'], -kv[1]['sig'])):
+                r = Adw.ActionRow(title=GLib.markup_escape_text(ssid), subtitle=('Bağlı · ' if c['inuse'] else '') + (c['sec'] or 'Açık ağ') + f' · %{c["sig"]}')
+                r.add_prefix(Gtk.Image.new_from_icon_name('network-wireless-signal-good-symbolic' if c['sig'] > 40 else 'network-wireless-signal-weak-symbolic'))
+                b = Gtk.Button(label='Bağlantıyı kes' if c['inuse'] else 'Bağlan'); b.set_valign(Gtk.Align.CENTER)
+                b.connect('clicked', lambda _b, s=ssid, a=c['inuse']: connect(s, a)); r.add_suffix(b)
+                g2.add(r); rows.append(r)
+            if not rows:
+                r = Adw.ActionRow(title='Ağ bulunamadı' if sh('nmcli radio wifi') == 'enabled' else 'Wi-Fi kapalı'); g2.add(r); rows.append(r)
+        bg(work, done)
+    g3 = grp()
+    g3.add(r_button('Ağları yeniden tara', 'Tara', lambda: (bg_run('nmcli dev wifi rescan'), GLib.timeout_add(2500, lambda: (refresh(), False)[1]))))
+    g3.add(r_button('Gelişmiş ağ ayarları', 'Aç…', lambda: bg_run('nm-connection-editor'), 'Kayıtlı ağlar, VPN, statik IP'))
+    refresh()
+    return new_page(g1, g2, g3)
+
+def pane_bluetooth():
+    g1 = grp(); powered = 'Powered: yes' in sh('bluetoothctl show')
+    def setp(v):
+        if v: sh('rfkill unblock bluetooth')
+        bg_run(f'bluetoothctl power {"on" if v else "off"}')
+        GLib.timeout_add(1500, lambda: (refresh(), False)[1])
+    g1.add(r_switch('Bluetooth', powered, setp))
+    g2 = grp('Cihazlar'); rows = []
+    def act(mac, connected, paired):
+        def work():
+            if connected: return sh(f'bluetoothctl disconnect {mac}', 20)
+            if not paired: sh(f'bluetoothctl pair {mac}', 30); sh(f'bluetoothctl trust {mac}')
+            return sh(f'bluetoothctl connect {mac}', 30)
+        bg(work, lambda out: (toast((out.split('\n')[-1] if out else 'Tamam')[:80]), refresh()))
+    def refresh():
+        def work():
+            devs = []
+            for ln in sh('bluetoothctl devices').split('\n'):
+                m = re.match(r'Device (\S+) (.*)', ln)
+                if m:
+                    info = sh(f'bluetoothctl info {m.group(1)}')
+                    devs.append((m.group(1), m.group(2), 'Connected: yes' in info, 'Paired: yes' in info))
+            return devs
+        def done(devs):
+            clear_group(g2, rows); rows.clear()
+            for mac, name, con, pair in sorted(devs or [], key=lambda d: (not d[2], not d[3], d[1])):
+                r = Adw.ActionRow(title=GLib.markup_escape_text(name), subtitle=('Bağlı' if con else ('Eşleşmiş' if pair else 'Yakındaki cihaz')) + f' · {mac}')
+                r.add_prefix(Gtk.Image.new_from_icon_name('bluetooth-symbolic'))
+                b = Gtk.Button(label='Bağlantıyı kes' if con else ('Bağlan' if pair else 'Eşleştir')); b.set_valign(Gtk.Align.CENTER)
+                b.connect('clicked', lambda _b, m=mac, c=con, p=pair: act(m, c, p)); r.add_suffix(b)
+                g2.add(r); rows.append(r)
+            if not rows:
+                r = Adw.ActionRow(title='Cihaz yok', subtitle='“Cihazları ara” ile yakındakileri bulun'); g2.add(r); rows.append(r)
+        bg(work, done)
+    def scan():
+        toast('Aranıyor (10 sn)…')
+        bg(lambda: sh('bluetoothctl --timeout 10 scan on', 20), lambda _: refresh())
+    g3 = grp(); g3.add(r_button('Yakındaki cihazları ara', 'Ara', scan))
+    refresh()
+    return new_page(g1, g2, g3)
+
+def pane_network():
+    g = grp('Arayüzler')
+    for ln in sh('nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev').split('\n'):
+        f = ln.split(':')
+        if len(f) < 4 or f[1] in ('loopback', 'bridge', 'wifi-p2p') or f[0].startswith(('veth', 'docker', 'virbr', 'br-')): continue
+        ip = sh(f'nmcli -g IP4.ADDRESS dev show {f[0]}') or '—'
+        gw = sh(f'nmcli -g IP4.GATEWAY dev show {f[0]}') or '—'
+        r = Adw.ExpanderRow(title=f'{f[0]} ({"Wi-Fi" if f[1]=="wifi" else "Ethernet" if f[1]=="ethernet" else f[1]})', subtitle=f'{f[2]}' + (f' · {f[3]}' if f[3] else ''))
+        r.add_row(r_info('IP adresi', ip)); r.add_row(r_info('Ağ geçidi', gw))
+        r.add_row(r_info('DNS', sh(f'nmcli -g IP4.DNS dev show {f[0]}').replace('\n', ', ') or '—'))
+        r.add_row(r_info('MAC', sh(f'cat /sys/class/net/{f[0]}/address')))
+        g.add(r)
+    g2 = grp(); g2.add(r_button('VPN ve gelişmiş yapılandırma', 'Aç…', lambda: bg_run('nm-connection-editor')))
+    g2.add(r_info('Ana makine adı', sh('hostname')))
+    return new_page(g, g2)
+
+def pane_battery():
+    g = grp('Pil')
+    bat = glob.glob('/sys/class/power_supply/BAT*')
+    if bat:
+        b = bat[0]; rd = lambda n: sh(f'cat {b}/{n}')
+        cap = int(rd('capacity') or 0)
+        r = Adw.ActionRow(title=f'%{cap}', subtitle={'Charging': 'Şarj oluyor', 'Discharging': 'Pil kullanılıyor', 'Full': 'Dolu', 'Not charging': 'Şarj olmuyor'}.get(rd('status'), rd('status')))
+        lb = Gtk.LevelBar.new_for_interval(0, 100); lb.set_value(cap); lb.set_size_request(220, 10); lb.set_valign(Gtk.Align.CENTER); r.add_suffix(lb)
+        g.add(r)
+        try:
+            ef, ed = int(rd('energy_full')), int(rd('energy_full_design'))
+            g.add(r_info('Pil sağlığı', f'%{round(ef*100/ed)} (tasarım kapasitesinin)'))
+        except Exception: pass
+        g.add(r_info('Döngü sayısı', rd('cycle_count') or '—'))
+    else:
+        g.add(r_info('Pil', 'Bulunamadı'))
+    g2 = grp('Güç modu')
+    cur = sh('powerprofilesctl get') or 'balanced'
+    profs = ['power-saver', 'balanced', 'performance']
+    names = ['Düşük güç', 'Dengeli', 'Yüksek performans']
+    g2.add(r_combo('Güç profili', names, profs.index(cur) if cur in profs else 1, lambda i: bg_run(f'powerprofilesctl set {profs[i]}')))
+    return new_page(g, g2)
+
+def pane_general():
+    g = grp('Bu Mac Hakkında')
+    host = sh('hostnamectl --static') or sh('hostname')
+    model = sh('cat /sys/class/dmi/id/product_name')
+    cpu = sh("lscpu | awk -F: '/Model name/{gsub(/^ +/,\"\",$2);print $2;exit}'")
+    mem = sh("free -h | awk '/Mem:/{print $2}'")
+    gpus = ' · '.join(re.sub(r'^.*: ', '', x) for x in sh('lspci | grep -E "VGA|3D"').split('\n') if x)
+    os_ = sh("grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"'")
+    for t, v in [('Ad', host), ('Model', model), ('Yonga', cpu), ('Bellek', mem + ' RAM'), ('Grafik', gpus), ('Sistem', os_),
+                 ('Çekirdek', sh('uname -r')), ('Seri numarası', sh('cat /sys/class/dmi/id/product_serial 2>/dev/null') or '—'),
+                 ('Çalışma süresi', sh('uptime -p')), ('Masaüstü', 'Hyprland ' + sh("hyprctl version | head -1 | grep -oE 'v?[0-9]+\\.[0-9]+\\.[0-9]+' | head -1"))]:
+        g.add(r_info(t, v))
+    g2 = grp('Depolama')
+    for ln in sh("df -h --output=target,size,used,avail,pcent -x tmpfs -x devtmpfs -x efivarfs -x squashfs | tail -n +2").split('\n'):
+        f = ln.split()
+        if len(f) < 5 or f[0].startswith(('/boot', '/run', '/snap', '/var/lib/docker')) : continue
+        r = Adw.ActionRow(title=f[0], subtitle=f'{f[2]} kullanılan / {f[1]} · {f[3]} boş')
+        lb = Gtk.LevelBar.new_for_interval(0, 100); lb.set_value(int(f[4].strip('%'))); lb.set_size_request(200, 10); lb.set_valign(Gtk.Align.CENTER); r.add_suffix(lb)
+        g2.add(r)
+    g3 = grp('Yazılım Güncelleme'); r = Adw.ActionRow(title='Güncellemeler denetleniyor…'); g3.add(r)
+    def done(n):
+        r.set_title('Sistem güncel' if not n else f'{n} güncelleme mevcut')
+        if n: r.add_suffix(Gtk.Button(label='Güncelle', css_classes=['suggested-action'], valign=Gtk.Align.CENTER)); r.get_last_child()
+    def work(): return len([x for x in sh('checkupdates', 60).split('\n') if x])
+    bg(work, done)
+    g3.add(r_button('Terminalde güncelle', 'Güncelle', lambda: bg_run("kitty -e sh -c 'sudo pacman -Syu; echo; read -p \"Bitti. Enter...\"'")))
+    return new_page(g, g2, g3)
+
+ACCENTS = [('Mavi', '#0a84ff'), ('Mor', '#bf5af2'), ('Pembe', '#ff375f'), ('Kırmızı', '#ff453a'), ('Turuncu', '#ff9f0a'),
+           ('Sarı', '#ffd60a'), ('Yeşil', '#30d158'), ('Grafit', '#8e8e93')]
+
+def pane_appearance():
+    g = grp('Görünüm')
+    def setdark(i): S['dark'] = (i == 1); save(); bg(apply_theme)
+    g.add(r_combo('Görünüm', ['Açık', 'Koyu'], 1 if S['dark'] else 0, setdark, 'Uygulamalar yeniden açılınca tamamen uygulanır'))
+    g2 = grp('Vurgu rengi')
+    box = Gtk.Box(spacing=10, halign=Gtk.Align.CENTER, margin_top=12, margin_bottom=12)
+    first = None
+    for name, col in ACCENTS:
+        b = Gtk.ToggleButton(tooltip_text=name); b.set_size_request(30, 30)
+        pv = Gtk.CssProvider(); pv.load_from_data(f'button {{ background: {col}; border-radius: 999px; min-width: 24px; min-height: 24px; padding: 0; border: 3px solid transparent; }} button:checked {{ border-color: rgba(255,255,255,0.9); }}'.encode())
+        b.get_style_context().add_provider(pv, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+        if first: b.set_group(first)
+        else: first = b
+        b.set_active(col == S['accent'])
+        b.connect('toggled', lambda w, c=col: w.get_active() and (S.__setitem__('accent', c), save(), bg(apply_theme)))
+        box.append(b)
+    g2.add(box)
+    g3 = grp('Pencereler')
+    g3.add(r_scale('Köşe yuvarlaklığı', 0, 28, 1, S['look']['rounding'], lambda v: (S['look'].__setitem__('rounding', int(v)), schedule_apply())))
+    g3.add(r_switch('Cam (bulanıklık) efekti', S['look']['blur'], lambda v: (S['look'].__setitem__('blur', v), schedule_apply())))
+    g3.add(r_scale('Arka plandaki pencerelerin saydamlığı', 0.6, 1.0, 0.02, S['look']['opacity'], lambda v: (S['look'].__setitem__('opacity', round(v, 2)), schedule_apply()), digits=2))
+    return new_page(g, g2, g3)
+
+def pane_access():
+    g = grp('Görüntü')
+    g.add(r_switch('Animasyonları azalt', not S['look']['animations'], lambda v: (S['look'].__setitem__('animations', not v), schedule_apply())))
+    cur = int(sh('gsettings get org.gnome.desktop.interface cursor-size') or 24)
+    g.add(r_scale('İmleç boyutu', 16, 64, 4, cur, lambda v: (sh(f'gsettings set org.gnome.desktop.interface cursor-size {int(v)}'), sh(f'hyprctl setcursor capitaine-cursors {int(v)}'))))
+    try: ts = float(sh('gsettings get org.gnome.desktop.interface text-scaling-factor'))
+    except Exception: ts = 1.0
+    g.add(r_scale('Metin boyutu', 0.8, 1.6, 0.05, ts, lambda v: sh(f'gsettings set org.gnome.desktop.interface text-scaling-factor {v:.2f}'), digits=2, sub='GTK uygulamalarında geçerli'))
+    g2 = grp('Ses'); g2.add(r_switch('Olay sesleri', sh('gsettings get org.gnome.desktop.sound event-sounds') == 'true', lambda v: sh(f'gsettings set org.gnome.desktop.sound event-sounds {"true" if v else "false"}')))
+    return new_page(g, g2)
+
+def pane_dock():
+    g = grp('Dock'); d = S['dock']
+    g.add(r_scale('Boyut', 28, 80, 2, d['size'], lambda v: (d.__setitem__('size', int(v)), save(), restart_dock_soon())))
+    g.add(r_switch('Dock’u otomatik gizle ve göster', d['autohide'], lambda v: (d.__setitem__('autohide', v), save(), restart_dock_soon())))
+    pos = ['bottom', 'left', 'right']
+    g.add(r_combo('Ekrandaki konum', ['Altta', 'Solda', 'Sağda'], pos.index(d['position']), lambda i: (d.__setitem__('position', pos[i]), save(), restart_dock_soon())))
+    g2 = grp('Menü çubuğu')
+    g2.add(r_button('Menü çubuğunu yeniden başlat', 'Yeniden başlat', lambda: bg_run('pkill waybar; sleep 0.5; waybar')))
+    return new_page(g, g2)
+
+_dt = None
+def restart_dock_soon():
+    global _dt
+    if _dt: GLib.source_remove(_dt)
+    def go():
+        global _dt; _dt = None; bg_run('tahoe-dock'); return False
+    _dt = GLib.timeout_add(700, go)
+
+SEL_MON = [None]
+
+def pane_displays():
+    import cairo
+    mons = get_monitors()
+    if not mons: return Adw.StatusPage(title='Ekran bulunamadı')
+    for m in mons: mon_cfg(m)
+    byname = {m['name']: m for m in mons}
+    if SEL_MON[0] not in byname: SEL_MON[0] = 'eDP-1' if 'eDP-1' in byname else mons[0]['name']
+    page = Adw.PreferencesPage()
+    holder = {'group': None}
+
+    # ── Düzen tuvali: macOS'taki sürüklenebilir ekran küçük resimleri ──
+    cg = grp('Ekran düzeni', 'Ekranları sürükleyerek konumlarını değiştirin. Ayarlarını görmek için bir ekrana tıklayın.' if len(mons) > 1 else None)
+    da = Gtk.DrawingArea(); da.set_content_height(210); da.set_hexpand(True)
+    state = {'rects': {}, 'drag': None, 'scale': 0.05, 'origin': (0, 0), 'start': (0, 0)}
+
+    def geom(w, h):
+        names, prim, pos = compute_layout(mons)
+        rects = {}
+        for n in names:
+            lw, lh = logical(S['monitors'][n]); x, y = pos.get(n, (0, 0))
+            rects[n] = [x, y, lw, lh]
+        if not rects: return {}, 1, (0, 0)
+        minx = min(r[0] for r in rects.values()); miny = min(r[1] for r in rects.values())
+        maxx = max(r[0] + r[2] for r in rects.values()); maxy = max(r[1] + r[3] for r in rects.values())
+        sc = min((w - 80) / max(1, maxx - minx), (h - 40) / max(1, maxy - miny), 0.12)
+        ox = (w - (maxx - minx) * sc) / 2 - minx * sc; oy = (h - (maxy - miny) * sc) / 2 - miny * sc
+        return rects, sc, (ox, oy)
+
+    def rrect(cr, X, Y, W, H, r=8):
+        cr.new_sub_path(); cr.arc(X + W - r, Y + r, r, -1.5708, 0); cr.arc(X + W - r, Y + H - r, r, 0, 1.5708)
+        cr.arc(X + r, Y + H - r, r, 1.5708, 3.1416); cr.arc(X + r, Y + r, r, 3.1416, 4.7124); cr.close_path()
+
+    def draw(area, cr, w, h):
+        rects, sc, (ox, oy) = geom(w, h)
+        state['rects'], state['scale'], state['origin'] = rects, sc, (ox, oy)
+        names, prim, _ = compute_layout(mons)
+        for n, (x, y, lw, lh) in rects.items():
+            X, Y, W, H = x * sc + ox, y * sc + oy, lw * sc, lh * sc
+            if state['drag'] and state['drag'][0] == n: X, Y = state['drag'][1]
+            rrect(cr, X, Y, W, H)
+            lg = cairo.LinearGradient(X, Y, X + W, Y + H); lg.add_color_stop_rgb(0, 0.11, 0.18, 0.48); lg.add_color_stop_rgb(1, 0.54, 0.25, 0.72)
+            cr.set_source(lg); cr.fill_preserve()
+            if n == SEL_MON[0]: cr.set_source_rgb(0.04, 0.52, 1.0); cr.set_line_width(4)
+            else: cr.set_source_rgba(1, 1, 1, 0.25); cr.set_line_width(1.5)
+            cr.stroke()
+            if n == prim:   # ana ekranda menü çubuğu
+                cr.rectangle(X + 3, Y + 3, W - 6, max(5, 30 * sc)); cr.set_source_rgba(1, 1, 1, 0.8); cr.fill()
+            cr.set_source_rgba(1, 1, 1, 0.95); cr.select_font_face('Inter'); cr.set_font_size(12)
+            ext = cr.text_extents(n); cr.move_to(X + (W - ext.width) / 2, Y + H / 2 + 4); cr.show_text(n)
+    da.set_draw_func(draw)
+
+    def hit(x, y):
+        sc = state['scale']; ox, oy = state['origin']
+        for n, (rx, ry, lw, lh) in state['rects'].items():
+            if rx * sc + ox <= x <= (rx + lw) * sc + ox and ry * sc + oy <= y <= (ry + lh) * sc + oy: return n
+        return None
+
+    drag = Gtk.GestureDrag(); da.add_controller(drag)
+    def d_begin(g, x, y):
+        n = hit(x, y)
+        if not n: state['drag'] = None; return
+        rx, ry, lw, lh = state['rects'][n]; sc = state['scale']; ox, oy = state['origin']
+        state['start'] = (rx * sc + ox, ry * sc + oy); state['drag'] = [n, state['start'], False]
+    def d_update(g, dx, dy):
+        if not state['drag']: return
+        if abs(dx) + abs(dy) > 4: state['drag'][2] = True
+        state['drag'][1] = (state['start'][0] + dx, state['start'][1] + dy); da.queue_draw()
+    def d_end(g, dx, dy):
+        d = state['drag']; state['drag'] = None
+        if not d: return
+        n, (X, Y), moved = d
+        if not moved:
+            if SEL_MON[0] != n: SEL_MON[0] = n; build_sel()
+            da.queue_draw(); return
+        names, prim, _ = compute_layout(mons)
+        if len(names) < 2: da.queue_draw(); return
+        sc = state['scale']; ox, oy = state['origin']
+        other = prim if n != prim else [x for x in names if x != prim][0]
+        rx, ry, lw, lh = state['rects'][other]
+        mx, my = X + state['rects'][n][2] * sc / 2, Y + state['rects'][n][3] * sc / 2
+        ddx, ddy = mx - (rx + lw / 2) * sc - ox, my - (ry + lh / 2) * sc - oy
+        if abs(ddx) * 0.55 >= abs(ddy): side = 'left' if ddx < 0 else 'right'
+        else: side = 'above' if ddy < 0 else 'below'
+        if n == prim: side = {'left': 'right', 'right': 'left', 'above': 'below', 'below': 'above'}[side]
+        S['arrange'] = side; schedule_apply(); da.queue_draw()
+    drag.connect('drag-begin', d_begin); drag.connect('drag-update', d_update); drag.connect('drag-end', d_end)
+    fr = Gtk.Frame(); fr.set_child(da); fr.add_css_class('card'); cg.add(fr)
+    page.add(cg)
+
+    def redraw_later(): GLib.timeout_add(1000, lambda: (da.queue_draw(), False)[1])
+
+    # ── Seçili ekranın ayarları ──
+    def build_sel():
+        if holder['group']: page.remove(holder['group'])
+        n = SEL_MON[0]; m = byname[n]; c = S['monitors'][n]
+        g = grp(f"{n} — {m.get('description', '')}")
+        holder['group'] = g
+        modes = list(dict.fromkeys(f"{x.split('@')[0]}@{round(float(x.split('@')[1].rstrip('Hz')))}" for x in m['availableModes']))
+        cur_res = c['mode'].split('@')[0]
+        nat = max((x.split('@')[0] for x in modes), key=lambda r: int(r.split('x')[0]) * int(r.split('x')[1]))
+        nw, nh = map(int, nat.split('x'))
+        # macOS'taki gibi: Daha büyük metin … Daha fazla alan
+        scales = [2.0, 1.75, 1.5, 1.25, 1.0]
+        rowc = Adw.PreferencesRow(); rb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
+        rb.append(Gtk.Label(label='Çözünürlük', xalign=0, css_classes=['heading']))
+        fb = Gtk.Box(spacing=8, homogeneous=True)
+        firstb = None
+        for i, sc_ in enumerate(scales):
+            lw_, lh_ = int(nw / sc_), int(nh / sc_)
+            btn = Gtk.ToggleButton(); btn.add_css_class('flat')
+            vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_top=8, margin_bottom=8)
+            ico = Gtk.Label(); ico.set_markup(f'<span size="{12000 + (len(scales) - 1 - i) * 4000}" weight="bold">Aa</span>')
+            vb.append(ico); vb.append(Gtk.Label(label=f'{lw_}×{lh_}', css_classes=['caption']))
+            vb.append(Gtk.Label(label='Daha büyük metin' if i == 0 else ('Daha fazla alan' if i == len(scales) - 1 else ' '), css_classes=['caption', 'dim-label']))
+            btn.set_child(vb)
+            if firstb: btn.set_group(firstb)
+            else: firstb = btn
+            btn.set_active(abs(c['scale'] - sc_) < 0.13 and min(scales, key=lambda x: abs(x - c['scale'])) == sc_)
+            btn.connect('toggled', lambda w, sc_=sc_: w.get_active() and abs(c['scale'] - sc_) > 0.001 and (c.__setitem__('scale', sc_), schedule_apply(), redraw_later()))
+            fb.append(btn)
+        rb.append(fb); rowc.set_child(rb); g.add(rowc)
+        rates = sorted({int(x.split('@')[1]) for x in modes if x.split('@')[0] == cur_res}, reverse=True) or [int(c['mode'].split('@')[1])]
+        cur_rate = int(c['mode'].split('@')[1]); ri = rates.index(cur_rate) if cur_rate in rates else 0
+        g.add(r_combo('Yenileme hızı', [f'{r} Hertz' for r in rates], ri, lambda i: (c.__setitem__('mode', f'{cur_res}@{rates[i]}'), schedule_apply())))
+        # Parlaklık (yalnız dahili ekran)
+        if n == 'eDP-1':
+            try: v = int(sh('brightnessctl -m | cut -d, -f4').strip('%') or 100)
+            except Exception: v = 100
+            g.add(r_scale('Parlaklık', 1, 100, 1, v, lambda x: bg_run(f'brightnessctl set {int(x)}%'), unit='%'))
+        # Gelişmiş
+        ex = Adw.ExpanderRow(title='Gelişmiş', subtitle='Piksel çözünürlüğü, döndürme, kullanım şekli, VRR')
+        reslist = list(dict.fromkeys(x.split('@')[0] for x in modes))
+        def set_res(i):
+            r = reslist[i]; c['mode'] = f"{r}@{max(int(x.split('@')[1]) for x in modes if x.startswith(r + '@'))}"
+            schedule_apply(); redraw_later()
+        ex.add_row(r_combo('Ekran çözünürlüğü (piksel)', reslist, reslist.index(cur_res) if cur_res in reslist else 0, set_res))
+        ex.add_row(r_combo('Döndür', ['Standart', '90°', '180°', '270°'], int(c.get('transform', 0)), lambda i: (c.__setitem__('transform', i), schedule_apply(), redraw_later())))
+        ex.add_row(r_switch('Bu ekranı etkinleştir', not c.get('disabled'), lambda v: (c.__setitem__('disabled', not v), schedule_apply(), redraw_later())))
+        ex.add_row(r_switch('Uyarlanabilir senkronizasyon (VRR)', S.get('vrr', False), lambda v: (S.__setitem__('vrr', v), schedule_apply())))
+        if len(mons) > 1:
+            keys = ['left', 'right', 'above', 'below', 'mirror']
+            ex.add_row(r_combo('Harici ekran, dahili ekranın', ['Solunda', 'Sağında', 'Üstünde', 'Altında', 'Yansıtılmış'], keys.index(S['arrange']), lambda i: (S.__setitem__('arrange', keys[i]), schedule_apply(), redraw_later())))
+        g.add(ex)
+        page.add(g)
+        # Gece Işığı grubu her zaman en sonda kalsın
+        if holder.get('night'): page.remove(holder['night']); page.add(holder['night'])
+    build_sel()
+
+    # ── Gece Işığı (Night Shift) ──
+    ng = grp('Gece Işığı', 'Akşamları ekranın renk sıcaklığını ısıtır.')
+    holder['night'] = ng
+    if shutil.which('hyprsunset'):
+        temp = [S.get('night_temp', 4000)]
+        def set_night(v):
+            sh('pkill -x hyprsunset')
+            if v: bg_run(f'hyprsunset -t {int(temp[0])}')
+        ng.add(r_switch('Gece Işığı', bool(sh('pgrep -x hyprsunset')), set_night))
+        def set_temp(x):
+            temp[0] = int(x); S['night_temp'] = int(x); save()
+            if sh('pgrep -x hyprsunset'): sh('pkill -x hyprsunset'); bg_run(f'hyprsunset -t {int(x)}')
+        ng.add(r_scale('Renk sıcaklığı', 2500, 6500, 100, temp[0], set_temp, unit=' K', sub='Düşük değer = daha sıcak renk'))
+    else:
+        ng.add(r_info('Gece Işığı için hyprsunset gerekli', 'Kurmak için: sudo pacman -S hyprsunset'))
+    page.add(ng)
+    return page
+
+WALLS = [('Tahoe Işığı', (28, 47, 122), (138, 63, 184), (255, 150, 190)), ('Gün Batımı', (255, 94, 98), (60, 20, 110), (255, 200, 120)),
+         ('Okyanus', (4, 30, 70), (20, 130, 170), (120, 230, 220)), ('Orman', (10, 40, 30), (40, 120, 80), (190, 240, 150)),
+         ('Grafit', (22, 22, 26), (70, 72, 84), (150, 160, 190)), ('Gül', (110, 30, 80), (240, 120, 160), (255, 220, 200))]
+
+def make_wall(c1, c2, c3, path):
+    import numpy as np
+    from PIL import Image
+    W, H = 2560, 1440
+    y, x = np.mgrid[0:H, 0:W]
+    t = (x / W * 0.6 + y / H * 0.4)[..., None]
+    img = np.array(c1) * (1 - t) + np.array(c2) * t
+    d = np.sqrt(((x - W * 0.75) / W) ** 2 + ((y - H * 0.8) / H) ** 2)[..., None]
+    gl = np.clip(1 - d * 1.6, 0, 1) ** 2
+    img = img * (1 - gl * 0.6) + np.array(c3) * gl * 0.6
+    Image.fromarray(img.clip(0, 255).astype('uint8')).save(path)
+
+def set_wall(path):
+    dst = f'{HYPR}/wallpaper.png'
+    if os.path.abspath(path) != dst: shutil.copy(path, dst)
+    sh('pkill hyprpaper'); time.sleep(0.4); bg_run('hyprpaper')
+
+def pane_wall():
+    g = grp('Duvar kağıdı')
+    pic = Gtk.Picture.new_for_filename(f'{HYPR}/wallpaper.png'); pic.set_size_request(-1, 190); pic.set_content_fit(Gtk.ContentFit.COVER)
+    pic.set_margin_top(8); pic.set_margin_bottom(8); pic.add_css_class('card'); pic.set_overflow(Gtk.Overflow.HIDDEN)
+    g.add(pic)
+    def pick():
+        d = Gtk.FileDialog(); f = Gtk.FileFilter(); f.set_name('Resimler'); f.add_mime_type('image/*')
+        fl = Gio.ListStore.new(Gtk.FileFilter); fl.append(f); d.set_filters(fl)
+        def done(dlg, res):
+            try: file = dlg.open_finish(res)
+            except Exception: return
+            set_wall(file.get_path()); pic.set_filename(f'{HYPR}/wallpaper.png')
+        d.open(APP.props.active_window, None, done)
+    g.add(r_button('Resim seç', 'Seç…', pick, 'Kendi fotoğrafınızı duvar kağıdı yapın'))
+    g2 = grp('Hazır duvar kağıtları')
+    fb = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=3, min_children_per_line=2, column_spacing=10, row_spacing=10, margin_top=8, margin_bottom=8)
+    os.makedirs(f'{HOME}/.local/share/tahoe/walls', exist_ok=True)
+    for name, a, b, c in WALLS:
+        p = f'{HOME}/.local/share/tahoe/walls/{name}.png'
+        if not os.path.exists(p): make_wall(a, b, c, p)
+        btn = Gtk.Button(); btn.add_css_class('flat')
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        im = Gtk.Picture.new_for_filename(p); im.set_size_request(160, 90); im.set_content_fit(Gtk.ContentFit.COVER); im.set_overflow(Gtk.Overflow.HIDDEN); im.add_css_class('card')
+        v.append(im); v.append(Gtk.Label(label=name)); btn.set_child(v)
+        btn.connect('clicked', lambda _b, p=p: (set_wall(p), pic.set_filename(f'{HYPR}/wallpaper.png')))
+        fb.append(btn)
+    g2.add(fb)
+    return new_page(g, g2)
+
+def pane_notifications():
+    g = grp('Odaklanma')
+    dnd = sh('swaync-client -D') == 'true'
+    g.add(r_switch('Rahatsız Etme', dnd, lambda v: bg_run(f'swaync-client -{"dn" if v else "df"}'), 'Bildirimleri sessize alır'))
+    g2 = grp('Bildirimler')
+    g2.add(r_button('Bildirim Merkezi', 'Aç', lambda: bg_run('swaync-client -t -sw')))
+    g2.add(r_button('Tüm bildirimleri temizle', 'Temizle', lambda: bg_run('swaync-client -C')))
+    return new_page(g, g2)
+
+def wp_get(target):
+    out = sh(f'wpctl get-volume {target}')
+    m = re.search(r'([0-9.]+)', out)
+    return (float(m.group(1)) * 100 if m else 0), 'MUTED' in out
+
+def pane_sound():
+    g = grp('Çıkış'); sinks = []
+    try: sinks = json.loads(sh('pactl --format=json list sinks'))
+    except Exception: pass
+    names = [s.get('description', s['name']) for s in sinks]; ids = [s['name'] for s in sinks]
+    cur = sh('pactl get-default-sink')
+    if sinks: g.add(r_combo('Çıkış aygıtı', names, ids.index(cur) if cur in ids else 0, lambda i: bg_run(f'pactl set-default-sink {ids[i]}')))
+    v, mu = wp_get('@DEFAULT_AUDIO_SINK@')
+    g.add(r_scale('Çıkış ses düzeyi', 0, 100, 1, v, lambda x: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SINK@ {int(x)}%'), unit='%'))
+    g.add(r_switch('Sessiz', mu, lambda x: bg_run(f'wpctl set-mute @DEFAULT_AUDIO_SINK@ {1 if x else 0}')))
+    g2 = grp('Giriş'); srcs = []
+    try: srcs = [s for s in json.loads(sh('pactl --format=json list sources')) if '.monitor' not in s['name']]
+    except Exception: pass
+    if srcs:
+        sn = [s.get('description', s['name']) for s in srcs]; si = [s['name'] for s in srcs]; cs = sh('pactl get-default-source')
+        g2.add(r_combo('Giriş aygıtı', sn, si.index(cs) if cs in si else 0, lambda i: bg_run(f'pactl set-default-source {si[i]}')))
+    v2, mu2 = wp_get('@DEFAULT_AUDIO_SOURCE@')
+    g2.add(r_scale('Giriş ses düzeyi', 0, 100, 1, v2, lambda x: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SOURCE@ {int(x)}%'), unit='%'))
+    g2.add(r_switch('Mikrofonu sustur', mu2, lambda x: bg_run(f'wpctl set-mute @DEFAULT_AUDIO_SOURCE@ {1 if x else 0}')))
+    g3 = grp(); g3.add(r_button('Gelişmiş ses ayarları', 'Aç…', lambda: bg_run('pavucontrol')))
+    return new_page(g, g2, g3)
+
+def pane_lock():
+    g = grp('Ekran Kilidi ve Güç Tasarrufu', 'Süreler saniye cinsindendir. 0 = kapalı.')
+    t = S['idle']
+    def mk(key, title):
+        g.add(r_spin(title, 0, 7200, 30, t[key], lambda v, k=key: (t.__setitem__(k, int(v)), schedule_idle())))
+    mk('lock', 'Boşta kalınca ekranı kilitle'); mk('dpms', 'Ekranı kapat'); mk('suspend', 'Uyku moduna geç')
+    g2 = grp(); g2.add(r_button('Ekranı şimdi kilitle', 'Kilitle', lambda: bg_run('hyprlock')))
+    return new_page(g, g2)
+
+_it = None
+def schedule_idle():
+    global _it
+    if _it: GLib.source_remove(_it)
+    def go():
+        global _it; _it = None; threading.Thread(target=write_idle, daemon=True).start(); return False
+    _it = GLib.timeout_add(900, go)
+
+def pane_privacy():
+    g = grp('Güvenlik')
+    fw = sh('systemctl is-active ufw')
+    g.add(r_info('Güvenlik duvarı (ufw)', 'Etkin' if fw == 'active' else 'Kapalı'))
+    g.add(r_button('Güvenlik duvarını aç/kapat', 'Değiştir', lambda: bg_run('pkexec sh -c "systemctl is-active ufw && (ufw disable; systemctl disable --now ufw) || (systemctl enable --now ufw; ufw enable)"')))
+    g.add(r_info('Disk şifreleme', 'LUKS' if 'crypt' in sh('lsblk -o TYPE') else 'Yok'))
+    g2 = grp('Gizlilik')
+    g2.add(r_button('Pano geçmişini temizle', 'Temizle', lambda: bg_run('cliphist wipe 2>/dev/null; wl-copy --clear')))
+    g2.add(r_info('Ekran paylaşımı', 'xdg-desktop-portal-hyprland ile izin istenir'))
+    return new_page(g, g2)
+
+def pane_login():
+    g = grp('Oturum açılınca aç')
+    files = sorted(glob.glob(f'{HOME}/.config/autostart/*.desktop'))
+    if not files: g.add(r_info('Öğe yok', 'Eklemek için + kullanın'))
+    for f in files:
+        nm = os.path.basename(f)[:-8]
+        txt = open(f, errors='ignore').read()
+        m = re.search(r'^Name=(.*)$', txt, re.M)
+        r = Adw.ActionRow(title=m.group(1) if m else nm, subtitle=os.path.basename(f))
+        b = Gtk.Button(icon_name='user-trash-symbolic', valign=Gtk.Align.CENTER, css_classes=['flat'])
+        b.connect('clicked', lambda _b, f=f, r=r: (os.remove(f), g.remove(r))); r.add_suffix(b); g.add(r)
+    g2 = grp(); e = Adw.EntryRow(title='Komut (ör. discord)'); g2.add(e)
+    def add():
+        c = e.get_text().strip()
+        if not c: return
+        os.makedirs(f'{HOME}/.config/autostart', exist_ok=True)
+        n = re.sub(r'\W+', '-', c)[:40]
+        open(f'{HOME}/.config/autostart/{n}.desktop', 'w').write(f'[Desktop Entry]\nType=Application\nName={c}\nExec={c}\n')
+        toast('Eklendi'); e.set_text('')
+    g2.add(r_button('Giriş öğesi ekle', 'Ekle', add))
+    return new_page(g, g2)
+
+def pane_users():
+    g = grp('Kullanıcı'); u = os.environ.get('USER', '')
+    for t, v in [('Ad', sh(f"getent passwd {u} | cut -d: -f5 | cut -d, -f1") or u), ('Hesap', u), ('UID', str(os.getuid())),
+                 ('Ana dizin', HOME), ('Kabuk', sh(f"getent passwd {u} | cut -d: -f7")), ('Gruplar', sh('id -Gn').replace(' ', ', '))]:
+        g.add(r_info(t, v))
+    g2 = grp(); g2.add(r_button('Parolayı değiştir', 'Değiştir…', lambda: bg_run("kitty -e passwd")))
+    return new_page(g, g2)
+
+LAYOUTS = [('tr', 'Türkçe Q'), ('us', 'İngilizce (ABD)'), ('gb', 'İngilizce (BK)'), ('de', 'Almanca'), ('fr', 'Fransızca'), ('es', 'İspanyolca'), ('it', 'İtalyanca'), ('ru', 'Rusça'), ('az', 'Azerbaycanca')]
+
+def pane_keyboard():
+    i = S['input']
+    g = grp('Klavye')
+    keys = [k for k, _ in LAYOUTS]
+    g.add(r_combo('Giriş kaynağı (düzen)', [n for _, n in LAYOUTS], keys.index(i['kb_layout']) if i['kb_layout'] in keys else 0, lambda x: (i.__setitem__('kb_layout', keys[x]), schedule_apply())))
+    g.add(r_spin('Tuş tekrarlama hızı', 5, 60, 1, i['repeat_rate'], lambda v: (i.__setitem__('repeat_rate', int(v)), schedule_apply())))
+    g.add(r_spin('Tekrarlamaya kadar gecikme (ms)', 150, 1500, 50, i['repeat_delay'], lambda v: (i.__setitem__('repeat_delay', int(v)), schedule_apply())))
+    g2 = grp('Klavye Kısayolları')
+    for k, d in [('⌘ Enter', 'Terminal'), ('⌘ Space / ⌘ D', 'Spotlight'), ('⌘ Q', 'Pencereyi kapat'), ('⌘ Tab', 'Pencere değiştirici'), ('⌘ Ctrl Q', 'Ekranı kilitle'),
+                 ('⌘ Shift 3', 'Tüm ekranın görüntüsü'), ('⌘ Shift 4', 'Seçili alanın görüntüsü'), ('⌘ 1…0', 'Masaüstü (çalışma alanı) değiştir'),
+                 ('⌘ Shift 1…0', 'Pencereyi masaüstüne taşı'), ('⌘ F', 'Tam ekran'), ('⌘ V', 'Yüzen pencere'), ('⌘ ,', 'Sistem Ayarları'), ('⌘ Shift E', 'Oturumu kapat')]:
+        g2.add(r_info(k, d))
+    return new_page(g, g2)
+
+def pane_mouse():
+    i = S['input']; g = grp('İz Panosu')
+    g.add(r_switch('Doğal kaydırma', i['natural_scroll_touchpad'], lambda v: (i.__setitem__('natural_scroll_touchpad', v), schedule_apply())))
+    g.add(r_switch('Dokunarak tıkla', i['tap'], lambda v: (i.__setitem__('tap', v), schedule_apply())))
+    g.add(r_switch('Yazarken iz panosunu devre dışı bırak', i['dwt'], lambda v: (i.__setitem__('dwt', v), schedule_apply())))
+    g2 = grp('Fare')
+    g2.add(r_switch('Doğal kaydırma', i['natural_scroll_mouse'], lambda v: (i.__setitem__('natural_scroll_mouse', v), schedule_apply())))
+    g2.add(r_scale('İmleç hızı', -1, 1, 0.05, i['sensitivity'], lambda v: (i.__setitem__('sensitivity', round(v, 2)), schedule_apply()), digits=2))
+    return new_page(g, g2)
+
+def pane_printers():
+    g = grp('Yazıcılar')
+    st = sh('systemctl is-active cups')
+    g.add(r_info('Yazdırma servisi (CUPS)', 'Çalışıyor' if st == 'active' else 'Kapalı'))
+    for ln in sh('lpstat -p 2>/dev/null').split('\n'):
+        if ln.strip(): g.add(r_info('Yazıcı', ln))
+    g.add(r_button('Yazıcı ekle / yönet', 'Aç…', lambda: bg_run('system-config-printer'), 'Yazıcılar ve tarayıcılar'))
+    g.add(r_button('Yazdırma servisini başlat', 'Başlat', lambda: bg_run('pkexec systemctl enable --now cups')))
+    return new_page(g)
+
+def pane_datetime():
+    g = grp('Tarih ve Saat')
+    ntp = sh('timedatectl show -p NTP --value') == 'yes'
+    g.add(r_switch('Tarih ve saati otomatik ayarla', ntp, lambda v: bg_run(f'pkexec timedatectl set-ntp {"true" if v else "false"}')))
+    zones = sh('timedatectl list-timezones').split('\n'); cur = sh('timedatectl show -p Timezone --value')
+    row = r_combo('Saat dilimi', zones, zones.index(cur) if cur in zones else 0, lambda i: bg_run(f'pkexec timedatectl set-timezone {zones[i]}'))
+    row.set_enable_search(True); g.add(row)
+    g.add(r_info('Şu an', sh('date "+%A %e %B %Y, %H:%M:%S"')))
+    g2 = grp('Menü çubuğunda saat'); c = S['clock']
+    g2.add(r_switch('24 saatlik biçim', c['h24'], lambda v: (c.__setitem__('h24', v), write_clock())))
+    g2.add(r_switch('Saniyeyi göster', c['seconds'], lambda v: (c.__setitem__('seconds', v), write_clock())))
+    g2.add(r_switch('Tarihi göster', c['date'], lambda v: (c.__setitem__('date', v), write_clock())))
+    return new_page(g, g2)
+
+def pane_lang():
+    g = grp('Dil ve Bölge')
+    cur = sh("localectl status | grep 'LANG=' | head -1 | sed 's/.*LANG=//'")
+    locs = [l for l in sh('locale -a').split('\n') if 'utf8' in l.lower()]
+    locs = [l.replace('.utf8', '.UTF-8') for l in locs]
+    g.add(r_info('Geçerli dil', cur or os.environ.get('LANG', '')))
+    if locs: g.add(r_combo('Sistem dili', locs, locs.index(cur) if cur in locs else 0, lambda i: bg_run(f'pkexec localectl set-locale LANG={locs[i]}'), 'Yeniden oturum açınca geçerli olur'))
+    g.add(r_info('Klavye düzeni (konsol)', sh("localectl status | grep 'VC Keymap' | sed 's/.*: //'")))
+    return new_page(g)
+
+PANES = [
+    ('wifi', 'Wi-Fi', 'network-wireless-symbolic', pane_wifi), ('bluetooth', 'Bluetooth', 'bluetooth-symbolic', pane_bluetooth),
+    ('network', 'Ağ', 'network-wired-symbolic', pane_network), ('battery', 'Pil', 'battery-symbolic', pane_battery), None,
+    ('general', 'Genel', 'preferences-system-symbolic', pane_general), ('appearance', 'Görünüm', 'applications-graphics-symbolic', pane_appearance),
+    ('access', 'Erişilebilirlik', 'preferences-desktop-accessibility-symbolic', pane_access), ('dock', 'Masaüstü ve Dock', 'view-app-grid-symbolic', pane_dock),
+    ('displays', 'Ekranlar', 'video-display-symbolic', pane_displays), ('wallpaper', 'Duvar Kağıdı', 'preferences-desktop-wallpaper-symbolic', pane_wall), None,
+    ('notifications', 'Bildirimler ve Odaklanma', 'preferences-system-notifications-symbolic', pane_notifications), ('sound', 'Ses', 'audio-speakers-symbolic', pane_sound), None,
+    ('lock', 'Kilit Ekranı', 'system-lock-screen-symbolic', pane_lock), ('privacy', 'Gizlilik ve Güvenlik', 'security-high-symbolic', pane_privacy),
+    ('login', 'Giriş Öğeleri', 'system-run-symbolic', pane_login), ('users', 'Kullanıcılar ve Gruplar', 'system-users-symbolic', pane_users), None,
+    ('keyboard', 'Klavye', 'input-keyboard-symbolic', pane_keyboard), ('mouse', 'Fare ve İz Panosu', 'input-mouse-symbolic', pane_mouse),
+    ('printers', 'Yazıcılar ve Tarayıcılar', 'printer-symbolic', pane_printers), None,
+    ('datetime', 'Tarih ve Saat', 'preferences-system-time-symbolic', pane_datetime), ('lang', 'Dil ve Bölge', 'preferences-desktop-locale-symbolic', pane_lang),
+]
+
+# ───────────────────────── Sistem Ayarları penceresi ─────────────────────────
+class SettingsWindow(Adw.ApplicationWindow):
+    def __init__(self, app, pane=None):
+        super().__init__(application=app, title='Sistem Ayarları', default_width=1000, default_height=700)
+        self.toasts = Adw.ToastOverlay()
+        self.split = Adw.NavigationSplitView(); self.split.set_min_sidebar_width(250); self.split.set_max_sidebar_width(300)
+        self.toasts.set_child(self.split); self.set_content(self.toasts)
+        sb = Adw.ToolbarView(); sh_ = Adw.HeaderBar(); sh_.set_show_title(False); sb.add_top_bar(sh_)
+        self.search = Gtk.SearchEntry(placeholder_text='Ara', margin_start=10, margin_end=10, margin_bottom=6)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL); box.append(self.search)
+        self.lb = Gtk.ListBox(css_classes=['navigation-sidebar']); self.lb.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.idx = []
+        for p in PANES:
+            if p is None:
+                r = Gtk.ListBoxRow(selectable=False, activatable=False, height_request=14); r.add_css_class('tahoe-sep'); r.sep = True; r.name = ''; self.lb.append(r); self.idx.append(None); continue
+            key, name, icon, fn = p
+            r = Gtk.ListBoxRow(); r.sep = False; r.key = key; r.name = name
+            h = Gtk.Box(spacing=12, margin_top=7, margin_bottom=7, margin_start=8, margin_end=8)
+            h.append(Gtk.Image.new_from_icon_name(icon)); h.append(Gtk.Label(label=name, xalign=0)); r.set_child(h)
+            self.lb.append(r); self.idx.append(p)
+        sc = Gtk.ScrolledWindow(vexpand=True); sc.set_child(self.lb); box.append(sc); sb.set_content(box)
+        self.split.set_sidebar(Adw.NavigationPage.new(sb, 'Sistem Ayarları'))
+        self.ctb = Adw.ToolbarView(); self.chead = Adw.HeaderBar(); self.ctitle = Adw.WindowTitle(title='', subtitle=''); self.chead.set_title_widget(self.ctitle)
+        self.ctb.add_top_bar(self.chead)
+        self.cpage = Adw.NavigationPage.new(self.ctb, 'Ayarlar'); self.split.set_content(self.cpage)
+        self.lb.connect('row-selected', self.on_row)
+        self.search.connect('search-changed', lambda e: self.lb.invalidate_filter())
+        self.lb.set_filter_func(self.filt)
+        self.show_pane(pane or 'wifi')
+
+    def filt(self, row):
+        q = self.search.get_text().lower().strip()
+        if not q: return True
+        return (not row.sep) and q in row.name.lower()
+
+    def on_row(self, lb, row):
+        if row is None or row.sep: return
+        self.build(row.key)
+
+    def build(self, key):
+        for p in PANES:
+            if p and p[0] == key:
+                self.ctitle.set_title(p[1]); self.cpage.set_title(p[1])
+                try: w = p[3]()
+                except Exception as e:
+                    w = Adw.StatusPage(title='Bu bölüm açılamadı', description=str(e))
+                self.ctb.set_content(w); self.split.set_show_content(True); return
+
+    def show_pane(self, key):
+        for i, p in enumerate(PANES):
+            if p and p[0] == key:
+                self.lb.select_row(self.lb.get_row_at_index(i)); return
+
+# ───────────────────────── Denetim Merkezi ─────────────────────────
+class ControlCenter(Adw.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, title='Denetim Merkezi', default_width=360, default_height=520, decorated=False, resizable=False)
+        self.add_css_class('tahoe-cc')
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=14, margin_bottom=14, margin_start=14, margin_end=14)
+        grid = Gtk.Grid(column_spacing=10, row_spacing=10, column_homogeneous=True)
+        wifi = sh('nmcli radio wifi') == 'enabled'; bt = 'Powered: yes' in sh('bluetoothctl show')
+        dnd = sh('swaync-client -D') == 'true'
+        self.tiles = []
+        def tile(icon, label, active, cb, col, row):
+            b = Gtk.ToggleButton(); b.set_active(active)
+            bx = Gtk.Box(spacing=10, margin_top=10, margin_bottom=10, margin_start=6, margin_end=6)
+            bx.append(Gtk.Image.new_from_icon_name(icon)); bx.append(Gtk.Label(label=label, xalign=0, hexpand=True)); b.set_child(bx)
+            b.connect('toggled', lambda w: cb(w.get_active())); grid.attach(b, col, row, 1, 1)
+            return b
+        tile('network-wireless-symbolic', 'Wi-Fi', wifi, lambda v: bg_run(f'nmcli radio wifi {"on" if v else "off"}'), 0, 0)
+        tile('bluetooth-symbolic', 'Bluetooth', bt, lambda v: bg_run(f'{"rfkill unblock bluetooth; " if v else ""}bluetoothctl power {"on" if v else "off"}'), 1, 0)
+        tile('weather-clear-night-symbolic', 'Koyu Mod', S['dark'], lambda v: (S.__setitem__('dark', v), save(), bg(apply_theme)), 0, 1)
+        tile('notifications-disabled-symbolic', 'Rahatsız Etme', dnd, lambda v: bg_run(f'swaync-client -{"dn" if v else "df"}'), 1, 1)
+        outer.append(grid)
+        def slider(icon, label, val, cb):
+            f = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, css_classes=['card'], margin_top=0)
+            f.set_margin_top(2)
+            l = Gtk.Label(label=label, xalign=0, margin_start=12, margin_top=8, css_classes=['heading'])
+            sc = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1); sc.set_value(val); sc.set_margin_start(12); sc.set_margin_end(12); sc.set_margin_bottom(10)
+            sc.connect('value-changed', lambda w: cb(w.get_value())); f.append(l); f.append(sc); outer.append(f)
+        try: br = int(sh('brightnessctl -m | cut -d, -f4').strip('%') or 100)
+        except Exception: br = 100
+        slider('', 'Ekran', br, lambda v: bg_run(f'brightnessctl set {max(1,int(v))}%'))
+        slider('', 'Ses', wp_get('@DEFAULT_AUDIO_SINK@')[0], lambda v: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SINK@ {int(v)}%'))
+        # Güç modu
+        prof = ['power-saver', 'balanced', 'performance']; cur = sh('powerprofilesctl get') or 'balanced'
+        pf = Gtk.Box(spacing=6, homogeneous=True)
+        first = None
+        for p, n in zip(prof, ['Tasarruf', 'Dengeli', 'Performans']):
+            b = Gtk.ToggleButton(label=n)
+            if first: b.set_group(first)
+            else: first = b
+            b.set_active(p == cur); b.connect('toggled', lambda w, p=p: w.get_active() and bg_run(f'powerprofilesctl set {p}')); pf.append(b)
+        outer.append(Gtk.Label(label='Güç modu', xalign=0, css_classes=['heading'])); outer.append(pf)
+        # Şimdi çalıyor
+        title = sh('playerctl metadata title 2>/dev/null'); artist = sh('playerctl metadata artist 2>/dev/null')
+        if title:
+            np_ = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, css_classes=['card'])
+            np_.append(Gtk.Label(label=title, xalign=0, margin_start=12, margin_top=8, ellipsize=3, css_classes=['heading']))
+            np_.append(Gtk.Label(label=artist, xalign=0, margin_start=12, ellipsize=3, css_classes=['dim-label']))
+            cb_ = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, margin_bottom=8)
+            for ic, cmd in [('media-skip-backward-symbolic', 'previous'), ('media-playback-start-symbolic', 'play-pause'), ('media-skip-forward-symbolic', 'next')]:
+                b = Gtk.Button(icon_name=ic, css_classes=['flat']); b.connect('clicked', lambda _b, c=cmd: bg_run(f'playerctl {c}')); cb_.append(b)
+            np_.append(cb_); outer.append(np_)
+        btn = Gtk.Button(label='Sistem Ayarları…'); btn.connect('clicked', lambda *_: (bg_run('tahoe-settings'), app.quit()))
+        outer.append(btn)
+        self.set_content(outer)
+        self.connect('notify::is-active', self.on_active)
+        self._armed = False
+        GLib.timeout_add(600, lambda: (setattr(self, '_armed', True), False)[1])
+
+    def on_active(self, w, _):
+        if self._armed and not self.is_active():
+            APP.quit()
+
+APP = None
+
+class TahoeApp(Adw.Application):
+    def __init__(self, mode, pane):
+        super().__init__(application_id='org.tahoe.ControlCenter' if mode == 'cc' else 'org.tahoe.Settings', flags=Gio.ApplicationFlags.NON_UNIQUE)
+        self.mode, self.pane = mode, pane
+
+    def do_activate(self):
+        Gtk.Settings.get_default().set_property('gtk-icon-theme-name', 'Adwaita')
+        pv = Gtk.CssProvider(); pv.load_from_data(b'row.tahoe-sep, row.tahoe-sep:hover { background: transparent; min-height: 0; padding: 0; margin: 0; } windowcontrols button { min-width: 12px; min-height: 12px; }')
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pv, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK if S['dark'] else Adw.ColorScheme.FORCE_LIGHT)
+        w = ControlCenter(self) if self.mode == 'cc' else SettingsWindow(self, self.pane)
+        w.present()
+
+def default_wallpaper():
+    os.makedirs(f'{HOME}/.local/share/tahoe/walls', exist_ok=True)
+    for name, a, b, c in WALLS:
+        p = f'{HOME}/.local/share/tahoe/walls/{name}.png'
+        if not os.path.exists(p): make_wall(a, b, c, p)
+    dst = f'{HYPR}/wallpaper.png'
+    if not os.path.exists(dst): shutil.copy(f'{HOME}/.local/share/tahoe/walls/{WALLS[0][0]}.png', dst)
+
+def main():
+    global APP
+    args = sys.argv[1:]
+    if '--default-wallpaper' in args:
+        default_wallpaper(); return
+    if '--apply' in args:          # tüm ayarları (tema, hyprland, dock, saat, kilit) yeniden üret
+        apply_theme(); apply_hypr(); write_clock(); write_idle(); return
+    if '--apply-theme' in args:
+        apply_theme(); return
+    mode = 'cc' if '--control-center' in args else 'settings'
+    if mode == 'cc':
+        me = os.getpid()
+        others = []
+        for d in os.listdir('/proc'):
+            if not d.isdigit() or int(d) == me: continue
+            try: argv = open(f'/proc/{d}/cmdline', 'rb').read().split(b'\0')
+            except Exception: continue
+            if len(argv) > 2 and os.path.basename(argv[0].decode(errors='ignore')).startswith('python') and argv[1].decode(errors='ignore').endswith('tahoe-settings') and b'--control-center' in argv:
+                others.append(int(d))
+        if others:
+            for p in others:
+                try: os.kill(p, 15)
+                except Exception: pass
+            return
+    pane = args[args.index('--pane') + 1] if '--pane' in args else None
+    APP = TahoeApp(mode, pane)
+    APP.run([sys.argv[0]])
+
+if __name__ == '__main__':
+    main()

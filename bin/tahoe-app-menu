@@ -1,0 +1,23 @@
+#!/bin/bash
+# Aktif uygulama menüsü (macOS "Uygulama" menüsü)
+w=$(hyprctl activewindow -j)
+cls=$(echo "$w" | jq -r '.class // ""'); pid=$(echo "$w" | jq -r '.pid // 0')
+[ -z "$cls" ] && cls=Finder
+choice=$( {
+  printf '%s\n' "$cls Hakkında" "Ayarlar…"
+  printf '%s\0nonselectable\x1ftrue\n' '────────────────────'
+  printf '%s\n' "$cls Uygulamasını Gizle" "Diğerlerini Gizle"
+  printf '%s\0nonselectable\x1ftrue\n' '────────────────────'
+  printf '%s\n' "Pencereyi Küçült" "Yakınlaştır (Tam Ekran)" "Yüzen Pencere" "Pencereyi Kapat" "$cls Uygulamasından Çık"
+} | rofi -dmenu -i -no-custom -p "" -theme ~/.config/rofi/apple.rasi -theme-str 'window {x-offset: 70px;}')
+case "$choice" in
+  *Hakkında) exec tahoe-settings --pane general ;;
+  "Ayarlar…") exec tahoe-settings ;;
+  *Gizle) hyprctl dispatch 'hl.dsp.window.move({ workspace = "special:hidden" })' ;;
+  "Diğerlerini Gizle") hyprctl clients -j | jq -r --arg a "$(echo "$w" | jq -r .address)" '.[]|select(.address!=$a)|.address' | while read a; do hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:hidden\", window = \"address:$a\" })"; done ;;
+  "Pencereyi Küçült") hyprctl dispatch 'hl.dsp.window.move({ workspace = "special:minimized" })' ;;
+  Yakınlaştır*) hyprctl dispatch 'hl.dsp.window.fullscreen()' ;;
+  "Yüzen Pencere") hyprctl dispatch 'hl.dsp.window.float({ action = "toggle" })' ;;
+  "Pencereyi Kapat") hyprctl dispatch 'hl.dsp.window.close()' ;;
+  *Çık) kill "$pid" ;;
+esac

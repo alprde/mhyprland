@@ -1,0 +1,11 @@
+#!/bin/sh
+# Dock'u ~/.config/tahoe/settings.json'a göre (yeniden) başlatır
+J=$HOME/.config/tahoe/settings.json
+size=48; pos=bottom; ah=1
+if [ -f "$J" ]; then
+  size=$(jq -r '.dock.size // 48' "$J"); pos=$(jq -r '.dock.position // "bottom"' "$J"); [ "$(jq -r '.dock.autohide // true' "$J")" = "true" ] && ah=1 || ah=0
+fi
+pkill -x nwg-dock-hyprland 2>/dev/null; sleep 0.3
+opts="-i $size -p $pos -w 5 -mb 10 -ml 10 -mr 10 -mt 10 -nolauncher -c 'rofi -show drun'"
+[ "$ah" = 1 ] && opts="$opts -d" || opts="$opts -r"
+eval exec setsid nwg-dock-hyprland $opts

@@ -1,0 +1,37 @@
+#!/bin/bash
+# macOS  menüsü (rofi ile)
+sep() { printf '%s\0nonselectable\x1ftrue\n' '────────────────────'; }
+item() { printf '%s  <span alpha="45%%">%s</span>\n' "$1" "$2"; }
+confirm() { # $1 soru
+  r=$(printf 'Vazgeç\n%s\n' "$2" | rofi -dmenu -i -p "" -mesg "$1" -theme ~/.config/rofi/apple.rasi -theme-str 'window {width: 320px;} listview {lines: 2;}')
+  [ "$r" = "$2" ]
+}
+choice=$( {
+  item 'Bu Mac Hakkında' ''
+  sep
+  item 'Sistem Ayarları…' '⌘ ,'
+  item 'Yazılım Mağazası…' ''
+  sep
+  item 'Son Kullanılan Öğeler' '▸'
+  sep
+  item 'Zorla Çık…' '⌥⌘ Esc'
+  sep
+  item 'Uyku' ''
+  item 'Yeniden Başlat…' ''
+  item 'Kapat…' ''
+  sep
+  item 'Ekranı Kilitle' '⌃⌘ Q'
+  item "Oturumu Kapat ${USER}…" '⇧⌘ E'
+} | rofi -dmenu -i -markup-rows -no-custom -p "" -format s -theme ~/.config/rofi/apple.rasi | sed 's/ *<span.*//')
+case "$choice" in
+  "Bu Mac Hakkında") exec tahoe-settings --pane general ;;
+  "Sistem Ayarları…") exec tahoe-settings ;;
+  "Yazılım Mağazası…") if command -v plasma-discover >/dev/null; then exec plasma-discover; else exec kitty -e sh -c 'paru; read -p "Enter..."'; fi ;;
+  "Son Kullanılan Öğeler") exec tahoe-recent ;;
+  "Zorla Çık…") exec tahoe-forcequit ;;
+  "Uyku") hyprlock & sleep 0.6; exec systemctl suspend ;;
+  "Yeniden Başlat…") confirm "Bilgisayar yeniden başlatılsın mı?" "Yeniden Başlat" && exec systemctl reboot ;;
+  "Kapat…") confirm "Bilgisayar kapatılsın mı?" "Kapat" && exec systemctl poweroff ;;
+  "Ekranı Kilitle") exec hyprlock ;;
+  "Oturumu Kapat"*) confirm "Oturum kapatılsın mı?" "Oturumu Kapat" && exec hyprctl dispatch 'hl.dsp.exit()' ;;
+esac
