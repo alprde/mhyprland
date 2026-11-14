@@ -957,12 +957,37 @@ button.tl-max   { background-color: #28c840; } button.tl-max:hover   { backgroun
 window:backdrop button.tl { background-color: rgba(128,128,136,0.45); }
 """
 
-CC_CSS = b"""
-window.tahoe-cc-win { background: transparent; box-shadow: none; }
-window.tahoe-catcher { background: rgba(0,0,0,0.01); box-shadow: none; }
-.tahoe-cc-box { background-color: rgb(30,30,36); padding: 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 14px 40px rgba(0,0,0,0.45); }
-.tahoe-cc-box togglebutton:checked { background-color: @accent_bg_color; color: #fff; border-color: transparent; }
-"""
+def cc_css():
+    dark = S['dark']; acc = S['accent']
+    fg = '#f5f5f7' if dark else '#1d1d1f'; ov = '255,255,255' if dark else '0,0,0'
+    panel = 'rgb(30,30,36)' if dark else 'rgb(236,236,242)'
+    card = 'rgba(255,255,255,0.09)' if dark else 'rgba(255,255,255,0.75)'
+    cardh = 'rgba(255,255,255,0.15)' if dark else 'rgba(255,255,255,0.95)'
+    track = 'rgba(255,255,255,0.18)' if dark else 'rgba(0,0,0,0.12)'
+    return f"""
+window.tahoe-cc-win {{ background: transparent; box-shadow: none; }}
+window.tahoe-catcher {{ background: rgba(0,0,0,0.01); box-shadow: none; }}
+.tahoe-cc-box {{ background-color: {panel}; color: {fg}; padding: 14px; border-radius: 22px; border: 1px solid rgba({ov},0.14); box-shadow: 0 14px 40px rgba(0,0,0,0.45); }}
+.cc-card {{ background-color: {card}; border-radius: 16px; padding: 10px; }}
+button.cc-card {{ background-image: none; border: none; box-shadow: none; color: {fg}; }}
+button.cc-card:hover {{ background-color: {cardh}; }}
+button.cc-card.on {{ background-color: {acc}; color: #fff; }}
+button.cc-row {{ background: transparent; background-image: none; border: none; box-shadow: none; padding: 4px; border-radius: 12px; min-height: 0; color: {fg}; }}
+button.cc-row:hover {{ background-color: rgba({ov},0.08); }}
+.cc-circle {{ border-radius: 999px; background-color: rgba({ov},0.18); background-image: none; border: none; box-shadow: none; min-width: 36px; min-height: 36px; padding: 0; color: {fg}; }}
+.cc-circle.on {{ background-color: {acc}; color: #fff; }}
+.cc-title {{ font-weight: 700; font-size: 13px; }}
+.cc-sub {{ font-size: 12px; opacity: 0.62; }}
+.cc-tile-t {{ font-size: 12px; font-weight: 500; }}
+scale.cc-slider {{ min-height: 28px; padding: 0; }}
+scale.cc-slider trough {{ min-height: 28px; border-radius: 14px; background-color: {track}; }}
+scale.cc-slider highlight {{ min-height: 28px; border-radius: 14px; background-color: #ffffff; }}
+scale.cc-slider slider {{ min-width: 28px; min-height: 28px; margin: 0; padding: 0; border-radius: 50%; background-color: #ffffff; border: 1px solid rgba(0,0,0,0.12); box-shadow: 0 1px 4px rgba(0,0,0,0.35); }}
+.cc-slider-icon {{ color: #6e6e73; }}
+.cc-art {{ border-radius: 10px; background-color: rgba({ov},0.12); }}
+button.cc-media {{ background: transparent; background-image: none; border: none; box-shadow: none; min-width: 30px; min-height: 30px; padding: 0; border-radius: 999px; color: {fg}; }}
+button.cc-media:hover {{ background-color: rgba({ov},0.12); }}
+""".encode()
 
 def traffic_lights(win):
     box = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER); box.add_css_class('tl-box')
@@ -1036,57 +1061,9 @@ class SettingsWindow(Adw.ApplicationWindow):
 # ───────────────────────── Denetim Merkezi ─────────────────────────
 class ControlCenter(Gtk.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title='Denetim Merkezi', default_width=360, decorated=False, resizable=False)
+        super().__init__(application=app, title='Denetim Merkezi', default_width=390, decorated=False, resizable=False)
         self.add_css_class('tahoe-cc-win')
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        outer.add_css_class('tahoe-cc-box')
-        grid = Gtk.Grid(column_spacing=10, row_spacing=10, column_homogeneous=True)
-        wifi = sh('nmcli radio wifi') == 'enabled'; bt = 'Powered: yes' in sh('bluetoothctl show')
-        dnd = sh('swaync-client -D') == 'true'
-        self.tiles = []
-        def tile(icon, label, active, cb, col, row):
-            b = Gtk.ToggleButton(); b.set_active(active)
-            bx = Gtk.Box(spacing=10, margin_top=10, margin_bottom=10, margin_start=6, margin_end=6)
-            bx.append(Gtk.Image.new_from_icon_name(icon)); bx.append(Gtk.Label(label=label, xalign=0, hexpand=True)); b.set_child(bx)
-            b.connect('toggled', lambda w: cb(w.get_active())); grid.attach(b, col, row, 1, 1)
-            return b
-        tile('network-wireless-symbolic', 'Wi-Fi', wifi, lambda v: bg_run(f'nmcli radio wifi {"on" if v else "off"}'), 0, 0)
-        tile('bluetooth-symbolic', 'Bluetooth', bt, lambda v: bg_run(f'{"rfkill unblock bluetooth; " if v else ""}bluetoothctl power {"on" if v else "off"}'), 1, 0)
-        tile('weather-clear-night-symbolic', 'Koyu Mod', S['dark'], lambda v: (S.__setitem__('dark', v), save(), bg(apply_theme)), 0, 1)
-        tile('notifications-disabled-symbolic', 'Rahatsız Etme', dnd, lambda v: bg_run(f'swaync-client -{"dn" if v else "df"}'), 1, 1)
-        outer.append(grid)
-        def slider(icon, label, val, cb):
-            f = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, css_classes=['card'], margin_top=0)
-            f.set_margin_top(2)
-            l = Gtk.Label(label=label, xalign=0, margin_start=12, margin_top=8, css_classes=['heading'])
-            sc = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1); sc.set_value(val); sc.set_margin_start(12); sc.set_margin_end(12); sc.set_margin_bottom(10)
-            sc.connect('value-changed', lambda w: cb(w.get_value())); f.append(l); f.append(sc); outer.append(f)
-        try: br = int(sh('brightnessctl -m | cut -d, -f4').strip('%') or 100)
-        except Exception: br = 100
-        slider('', 'Ekran', br, lambda v: bg_run(f'brightnessctl set {max(1,int(v))}%'))
-        slider('', 'Ses', wp_get('@DEFAULT_AUDIO_SINK@')[0], lambda v: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SINK@ {int(v)}%'))
-        # Güç modu
-        prof = ['power-saver', 'balanced', 'performance']; cur = sh('powerprofilesctl get') or 'balanced'
-        pf = Gtk.Box(spacing=6, homogeneous=True)
-        first = None
-        for p, n in zip(prof, ['Tasarruf', 'Dengeli', 'Performans']):
-            b = Gtk.ToggleButton(label=n)
-            if first: b.set_group(first)
-            else: first = b
-            b.set_active(p == cur); b.connect('toggled', lambda w, p=p: w.get_active() and bg_run(f'powerprofilesctl set {p}')); pf.append(b)
-        outer.append(Gtk.Label(label='Güç modu', xalign=0, css_classes=['heading'])); outer.append(pf)
-        # Şimdi çalıyor
-        title = sh('playerctl metadata title 2>/dev/null'); artist = sh('playerctl metadata artist 2>/dev/null')
-        if title:
-            np_ = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, css_classes=['card'])
-            np_.append(Gtk.Label(label=title, xalign=0, margin_start=12, margin_top=8, ellipsize=3, css_classes=['heading']))
-            np_.append(Gtk.Label(label=artist, xalign=0, margin_start=12, ellipsize=3, css_classes=['dim-label']))
-            cb_ = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, margin_bottom=8)
-            for ic, cmd in [('media-skip-backward-symbolic', 'previous'), ('media-playback-start-symbolic', 'play-pause'), ('media-skip-forward-symbolic', 'next')]:
-                b = Gtk.Button(icon_name=ic, css_classes=['flat']); b.connect('clicked', lambda _b, c=cmd: bg_run(f'playerctl {c}')); cb_.append(b)
-            np_.append(cb_); outer.append(np_)
-        btn = Gtk.Button(label='Sistem Ayarları…'); btn.connect('clicked', lambda *_: (bg_run('tahoe-settings'), self.quit_cc()))
-        outer.append(btn)
+        outer = self.build_ui()
         self.set_child(outer)
         self.label = CC_LABEL[0]; self._opened = time.time(); self.catchers = []
         if LS_OK:
@@ -1097,6 +1074,136 @@ class ControlCenter(Gtk.ApplicationWindow):
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, lambda: (self.quit_cc(), False)[1])
         # Çubuktaki başka bir simgeye tıklanınca (ikinci örnek SIGUSR1 gönderir) panel açık kalır; aynı simgeyse kapanır
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, self.on_signal)
+
+    def build_ui(self):
+        """macOS Denetim Merkezi düzeni: bağlantı kartı, Rahatsız Etme, küçük kartlar, ekran/ses kaydırıcıları, çalan müzik."""
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        outer.add_css_class('tahoe-cc-box')
+        self.rows = {}
+
+        def circle(icon, active):
+            img = Gtk.Image.new_from_icon_name(icon); img.set_pixel_size(18)
+            img.set_halign(Gtk.Align.CENTER); img.set_valign(Gtk.Align.CENTER); img.set_hexpand(True); img.set_vexpand(True)
+            c = Gtk.Box(); c.add_css_class('cc-circle'); c.set_size_request(36, 36); c.set_valign(Gtk.Align.CENTER); c.set_halign(Gtk.Align.START); c.set_hexpand(False); c.append(img)
+            if active: c.add_css_class('on')
+            return c
+
+        def set_on(w, on):
+            (w.add_css_class if on else w.remove_css_class)('on')
+
+        def label_box(title, sub=None):
+            v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1, valign=Gtk.Align.CENTER, hexpand=True)
+            t = Gtk.Label(label=title, xalign=0, wrap=True); t.add_css_class('cc-title'); v.append(t)
+            s = None
+            if sub is not None:
+                s = Gtk.Label(label=sub, xalign=0, ellipsize=3); s.add_css_class('cc-sub'); v.append(s)
+            return v, s
+
+        def row(icon, title, sub, active, cb):
+            b = Gtk.Button(); b.add_css_class('cc-row'); b.set_focusable(False)
+            h = Gtk.Box(spacing=10); c = circle(icon, active); v, s = label_box(title, sub)
+            h.append(c); h.append(v); b.set_child(h)
+            b.connect('clicked', lambda *_: cb())
+            return b, c, s
+
+        # ── Üst blok: bağlantılar (sol) + Rahatsız Etme / küçük kartlar (sağ) ──
+        top = Gtk.Box(spacing=12, homogeneous=True)
+        left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4); left.add_css_class('cc-card')
+
+        st = {'wifi': sh('nmcli radio wifi') == 'enabled', 'bt': 'Powered: yes' in sh('bluetoothctl show')}
+        def ssid(): return sh("LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | head -1 | cut -d: -f2") or ('Bağlı değil' if st['wifi'] else 'Kapalı')
+        wb, wc, ws = row('network-wireless-symbolic', 'Wi-Fi', ssid(), st['wifi'], lambda: None)
+        def wifi_toggle():
+            st['wifi'] = not st['wifi']; set_on(wc, st['wifi']); ws.set_text('Açılıyor…' if st['wifi'] else 'Kapalı')
+            bg(lambda: (sh(f'nmcli radio wifi {"on" if st["wifi"] else "off"}'), time.sleep(2.5), ssid())[2], lambda v: ws.set_text(v or ''))
+        wb.connect('clicked', lambda *_: wifi_toggle())
+        bb, bc, bs = row('bluetooth-active-symbolic', 'Bluetooth', 'Açık' if st['bt'] else 'Kapalı', st['bt'], lambda: None)
+        def bt_toggle():
+            st['bt'] = not st['bt']; set_on(bc, st['bt']); bs.set_text('Açık' if st['bt'] else 'Kapalı')
+            bg_run(f'{"rfkill unblock bluetooth; " if st["bt"] else ""}bluetoothctl power {"on" if st["bt"] else "off"}')
+        bb.connect('clicked', lambda *_: bt_toggle())
+        profs = ['power-saver', 'balanced', 'performance']; pnames = ['Tasarruf', 'Dengeli', 'Performans']
+        picons = ['power-profile-power-saver-symbolic', 'power-profile-balanced-symbolic', 'power-profile-performance-symbolic']
+        cur = sh('powerprofilesctl get') or 'balanced'; pi = [profs.index(cur) if cur in profs else 1]
+        pb, pc, ps = row(picons[pi[0]], 'Güç Modu', pnames[pi[0]], pi[0] != 1, lambda: None)
+        def prof_cycle():
+            pi[0] = (pi[0] + 1) % 3; ps.set_text(pnames[pi[0]]); set_on(pc, pi[0] != 1)
+            pc.get_first_child().set_from_icon_name(picons[pi[0]]); bg_run(f'powerprofilesctl set {profs[pi[0]]}')
+        pb.connect('clicked', lambda *_: prof_cycle())
+        for b in (wb, bb, pb): left.append(b)
+        top.append(left)
+
+        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        dnd = sh('swaync-client -D') == 'true'; dst = [dnd]
+        db = Gtk.Button(); db.add_css_class('cc-card'); db.add_css_class('cc-tilebtn'); db.set_focusable(False)
+        dh = Gtk.Box(spacing=10); dc = circle('weather-clear-night-symbolic', dnd); dv, _s = label_box('Rahatsız\nEtme'); dh.append(dc); dh.append(dv); db.set_child(dh)
+        def dnd_toggle():
+            dst[0] = not dst[0]; set_on(dc, dst[0]); bg_run(f'swaync-client -{"dn" if dst[0] else "df"}')
+        db.connect('clicked', lambda *_: dnd_toggle()); db.set_vexpand(True)
+        right.append(db)
+        small = Gtk.Box(spacing=12, homogeneous=True)
+        def tile(icon, title, active, cb):
+            b = Gtk.Button(); b.add_css_class('cc-card'); b.add_css_class('cc-tilebtn'); b.set_focusable(False)
+            v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+            im = Gtk.Image.new_from_icon_name(icon); im.set_pixel_size(22)
+            t = Gtk.Label(label=title, justify=Gtk.Justification.CENTER, wrap=True); t.add_css_class('cc-tile-t')
+            v.append(im); v.append(t); b.set_child(v)
+            if active: b.add_css_class('on')
+            b.connect('clicked', lambda *_: cb(b)); return b
+        def dark_toggle(b):
+            S['dark'] = not S['dark']; save(); set_on(b, S['dark']); bg(apply_theme)
+        small.append(tile('night-light-symbolic', 'Koyu\nMod', S['dark'], dark_toggle))
+        small.append(tile('system-lock-screen-symbolic', 'Ekranı\nKilitle', False, lambda b: (bg_run('hyprlock'), self.quit_cc())))
+        right.append(small)
+        top.append(right)
+        outer.append(top)
+
+        # ── Kaydırıcı kartları (macOS: beyaz dolgulu pill + içinde ikon) ──
+        def slider_card(title, icon, val, cb, extra=None):
+            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8); card.add_css_class('cc-card')
+            t = Gtk.Label(label=title, xalign=0); t.add_css_class('cc-title'); card.append(t)
+            h = Gtk.Box(spacing=10)
+            ov = Gtk.Overlay(hexpand=True)
+            sc = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1); sc.set_value(val); sc.set_draw_value(False); sc.add_css_class('cc-slider')
+            sc.connect('value-changed', lambda w: cb(w.get_value()))
+            ov.set_child(sc)
+            ic = Gtk.Image.new_from_icon_name(icon); ic.set_pixel_size(16); ic.set_halign(Gtk.Align.START); ic.set_valign(Gtk.Align.CENTER)
+            ic.set_margin_start(10); ic.set_can_target(False); ic.add_css_class('cc-slider-icon'); ov.add_overlay(ic)
+            h.append(ov)
+            if extra is not None: h.append(extra)
+            card.append(h)
+            return card
+        try: br = int(sh('brightnessctl -m | cut -d, -f4').strip('%') or 100)
+        except Exception: br = 100
+        outer.append(slider_card('Ekran', 'display-brightness-symbolic', br, lambda v: bg_run(f'brightnessctl set {max(1, int(v))}%')))
+        outb = Gtk.Button(); outb.add_css_class('cc-circle'); outb.add_css_class('cc-roundbtn'); outb.set_focusable(False); outb.set_size_request(36, 36)
+        outb.set_child(Gtk.Image.new_from_icon_name('audio-speakers-symbolic')); outb.connect('clicked', lambda *_: (bg_run('tahoe-settings --pane sound'), self.quit_cc()))
+        outer.append(slider_card('Ses', 'audio-volume-high-symbolic', wp_get('@DEFAULT_AUDIO_SINK@')[0], lambda v: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SINK@ {int(v)}%'), outb))
+
+        # ── Şimdi çalıyor ──
+        title = sh('playerctl metadata title 2>/dev/null'); artist = sh('playerctl metadata artist 2>/dev/null')
+        if title:
+            np_ = Gtk.Box(spacing=12); np_.add_css_class('cc-card')
+            art = sh('playerctl metadata mpris:artUrl 2>/dev/null')
+            if art.startswith('file://') and os.path.exists(art[7:]):
+                pic = Gtk.Picture.new_for_filename(art[7:]); pic.set_content_fit(Gtk.ContentFit.COVER)
+            else:
+                pic = Gtk.Image.new_from_icon_name('audio-x-generic-symbolic'); pic.set_pixel_size(28)
+            pic.set_size_request(52, 52); pic.add_css_class('cc-art'); np_.append(pic)
+            v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, valign=Gtk.Align.CENTER, hexpand=True)
+            tl = Gtk.Label(label=title, xalign=0, ellipsize=3, max_width_chars=18); tl.add_css_class('cc-title'); v.append(tl)
+            al = Gtk.Label(label=artist, xalign=0, ellipsize=3, max_width_chars=22); al.add_css_class('cc-sub'); v.append(al)
+            np_.append(v)
+            playing = sh('playerctl status 2>/dev/null') == 'Playing'
+            pp = Gtk.Button(icon_name='media-playback-pause-symbolic' if playing else 'media-playback-start-symbolic'); pp.add_css_class('cc-media'); pp.set_focusable(False)
+            def toggle_pp():
+                bg_run('playerctl play-pause'); pp.set_icon_name('media-playback-start-symbolic' if pp.get_icon_name() == 'media-playback-pause-symbolic' else 'media-playback-pause-symbolic')
+            pp.connect('clicked', lambda *_: toggle_pp())
+            nx = Gtk.Button(icon_name='media-skip-forward-symbolic'); nx.add_css_class('cc-media'); nx.set_focusable(False)
+            nx.connect('clicked', lambda *_: bg_run('playerctl next'))
+            np_.append(pp); np_.append(nx)
+            outer.append(np_)
+        return outer
 
     def setup_layer(self):
         """Çubuğun hemen altında sabit, fareyle çıkınca kapanmayan açılır panel + dışarı tıklayınca kapatan şeffaf yakalayıcı."""
@@ -1169,7 +1276,7 @@ class TahoeApp(Adw.Application):
         Gtk.Settings.get_default().set_property('gtk-icon-theme-name', 'Adwaita')
         pv = Gtk.CssProvider(); pv.load_from_data(b'row.tahoe-sep, row.tahoe-sep:hover { background: transparent; min-height: 0; padding: 0; margin: 0; }')
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pv, Gtk.STYLE_PROVIDER_PRIORITY_USER)
-        pt = Gtk.CssProvider(); pt.load_from_data(TL_CSS + CC_CSS)
+        pt = Gtk.CssProvider(); pt.load_from_data(TL_CSS + cc_css())
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pt, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK if S['dark'] else Adw.ColorScheme.FORCE_LIGHT)
         w = ControlCenter(self) if self.mode == 'cc' else SettingsWindow(self, self.pane)
