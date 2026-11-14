@@ -96,16 +96,17 @@ def apply_theme():
     ov = p['OV']
     open(f'{HOME}/.config/waybar/style.css', 'w').write(f'''* {{ font-family: "Inter", "JetBrainsMono Nerd Font"; font-size: 13px; font-weight: 500; border: none; border-radius: 0; min-height: 0; }}
 window#waybar {{ background: {p['PANEL']}; color: {p['FG']}; border-bottom: 1px solid rgba({ov},0.08); }}
-#custom-apple {{ font-size: 16px; padding: 0 14px; }}
-#window {{ font-weight: 700; padding: 0 6px; }}
+#custom-apple, #window, #tray, #pulseaudio, #network, #battery, #custom-clock, #custom-notif, #custom-spotlight, #custom-control, #bluetooth {{ margin: 3px 1px; border-radius: 6px; }}
+#custom-apple {{ font-size: 16px; padding: 0 12px; }}
+#window {{ font-weight: 700; padding: 0 8px; }}
 #workspaces {{ margin-left: 10px; }}
 #workspaces button {{ padding: 0 4px; color: rgba({ov},0.45); font-size: 9px; background: transparent; }}
 #workspaces button.active {{ color: {p['FG']}; }}
 #workspaces button:hover {{ background: rgba({ov},0.12); border-radius: 8px; }}
-#tray, #pulseaudio, #network, #battery, #custom-clock, #custom-notif, #custom-spotlight, #custom-control, #bluetooth {{ padding: 0 10px; }}
+#tray, #pulseaudio, #network, #battery, #custom-clock, #custom-notif, #custom-spotlight, #custom-control, #bluetooth {{ padding: 0 8px; }}
 #custom-spotlight, #custom-control, #network, #bluetooth {{ font-size: 14px; }}
 #custom-clock {{ font-weight: 600; }}
-#custom-apple:hover, #window:hover, #custom-spotlight:hover, #custom-control:hover, #network:hover, #pulseaudio:hover, #battery:hover, #custom-clock:hover, #custom-notif:hover {{ background: rgba({ov},0.12); border-radius: 6px; }}
+#custom-apple:hover, #window:hover, #custom-spotlight:hover, #custom-control:hover, #network:hover, #pulseaudio:hover, #battery:hover, #custom-clock:hover, #custom-notif:hover, #tray:hover {{ background: rgba({ov},0.14); }}
 #battery.warning {{ color: #ff9f0a; }} #battery.critical {{ color: #ff453a; }}
 tooltip {{ background: {p['TIP']}; border-radius: 12px; border: 1px solid rgba({ov},0.1); }}
 tooltip label {{ color: {p['FG']}; }}
@@ -1074,10 +1075,27 @@ APP = None
 
 class TahoeApp(Adw.Application):
     def __init__(self, mode, pane):
-        super().__init__(application_id='org.tahoe.ControlCenter' if mode == 'cc' else 'org.tahoe.Settings', flags=Gio.ApplicationFlags.NON_UNIQUE)
+        flags = Gio.ApplicationFlags.NON_UNIQUE if mode == 'cc' else Gio.ApplicationFlags.HANDLES_COMMAND_LINE
+        super().__init__(application_id='org.tahoe.ControlCenter' if mode == 'cc' else 'org.tahoe.Settings', flags=flags)
         self.mode, self.pane = mode, pane
 
+    def do_command_line(self, cl):
+        # Sistem Ayarları tek örnekli: açıksa yeni pencere açmak yerine bölümü değiştirir
+        args = cl.get_arguments()
+        pane = args[args.index('--pane') + 1] if '--pane' in args else None
+        win = self.props.active_window
+        if win is not None and isinstance(win, SettingsWindow):
+            if pane: win.show_pane(pane)
+            win.present()
+        else:
+            self.pane = pane
+            self.activate()
+        return 0
+
     def do_activate(self):
+        win = self.props.active_window
+        if win is not None:
+            win.present(); return
         Gtk.Settings.get_default().set_property('gtk-icon-theme-name', 'Adwaita')
         pv = Gtk.CssProvider(); pv.load_from_data(b'row.tahoe-sep, row.tahoe-sep:hover { background: transparent; min-height: 0; padding: 0; margin: 0; }')
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pv, Gtk.STYLE_PROVIDER_PRIORITY_USER)
@@ -1121,7 +1139,7 @@ def main():
             return
     pane = args[args.index('--pane') + 1] if '--pane' in args else None
     APP = TahoeApp(mode, pane)
-    APP.run([sys.argv[0]])
+    APP.run([sys.argv[0]] if mode == 'cc' else sys.argv)
 
 if __name__ == '__main__':
     main()

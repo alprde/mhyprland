@@ -11,9 +11,9 @@
   "hyprland/workspaces": { "format": "{icon}", "format-icons": { "active": "", "default": "" }, "persistent-workspaces": { "*": 4 }, "on-click": "activate" },
 
   "custom/clock": { "exec": "tahoe-clock", "interval": 5, "format": "{}", "tooltip": false, "on-click": "swaync-client -t -sw" },
-  "battery": { "format": "{capacity}% {icon}", "format-charging": "{capacity}% ", "format-icons": ["","","","",""], "tooltip-format": "{timeTo}", "on-click": "tahoe-settings --pane battery" },
-  "network": { "format-wifi": "", "format-ethernet": "", "format-disconnected": "", "tooltip-format": "{essid}  {signalStrength}%", "on-click": "tahoe-settings --pane wifi" },
-  "pulseaudio": { "format": "{icon}", "format-muted": "", "format-icons": { "default": ["","",""] }, "on-click": "tahoe-settings --pane sound", "scroll-step": 5 },
+  "battery": { "format": "{capacity}% {icon}", "format-charging": "{capacity}% ", "format-icons": ["","","","",""], "tooltip-format": "{timeTo}", "on-click": "tahoe-settings --control-center", "on-click-right": "tahoe-settings --pane battery" },
+  "network": { "format-wifi": "", "format-ethernet": "", "format-disconnected": "", "tooltip-format": "{essid}  {signalStrength}%", "on-click": "tahoe-settings --control-center", "on-click-right": "tahoe-settings --pane wifi" },
+  "pulseaudio": { "format": "{icon}", "format-muted": "", "format-icons": { "default": ["","",""] }, "on-click": "tahoe-settings --control-center", "on-click-right": "tahoe-settings --pane sound", "scroll-step": 5 },
   "custom/spotlight": { "format": "", "tooltip": false, "on-click": "rofi -show drun" },
   "custom/control": { "format": "", "tooltip": false, "on-click": "pavucontrol" },
   "custom/notif": { "format": "", "tooltip": false, "on-click": "swaync-client -t -sw" },

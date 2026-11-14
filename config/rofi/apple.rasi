@@ -7,3 +7,4 @@ listview { lines: 16; dynamic: true; spacing: 0px; scrollbar: false; fixed-heigh
 element { padding: 3px 10px; border-radius: 5px; }
 element selected.normal { background-color: @sel; text-color: #ffffff; }
 element-text { vertical-align: 0.5; markup: true; }
+element normal.normal, element alternate.normal, element normal.urgent, element alternate.urgent, element normal.active, element alternate.active { background-color: transparent; text-color: @fg; }

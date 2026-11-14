@@ -39,6 +39,9 @@ The Apple menu, app menu, Recent Items and Force Quit are rofi `-dmenu` lists wi
 10. **Hyprland (like KWin) holds the dGPU for the whole session** — dynamic GPU passthrough/unbinding to a VM cannot work from inside a running compositor; use a separate session/mode.
 11. **libadwaita ignores GTK themes.** Overrides go in `~/.config/gtk-4.0/gtk.css` (the app regenerates it), using libadwaita named colors (`@define-color accent_bg_color …`).
 12. **Symbolic icons:** `breeze-dark` lacks some symbolic names; the Settings app forces `Adwaita` as its icon theme.
+13. **rofi ≥ 2.0 renamed `modi` → `modes`** (list syntax: `modes: [drun, run];`). With the old key and several options on one line the whole line is swallowed and Spotlight opens with an error box. Write `configuration { … }` multi-line. Also override *every* element state (`normal/alternate/selected × normal/urgent/active`) or the default theme's cream backgrounds leak through.
+14. **Settings must be single-instance.** Waybar items launch `tahoe-settings --pane X`; with `NON_UNIQUE` every click opened a new window. The app now uses `HANDLES_COMMAND_LINE` and switches the pane of the existing window. The Control Center stays `NON_UNIQUE` (it toggles by killing an existing instance).
+15. **Waybar hover boxes:** give modules `margin: 3px 1px; border-radius: 6px` so the highlight is inset like macOS; full-height hover looks wrong. `hyprctl` synthetic cursor moves do not trigger waybar hover — to inspect geometry, temporarily set a background on the modules.
 
 ## Testing
 
