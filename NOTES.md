@@ -53,6 +53,7 @@ The Apple menu, app menu, Recent Items and Force Quit are rofi `-dmenu` lists wi
 24. **Tray apps that ignore left click** (Claude Desktop only handles the *Show* item in its dbusmenu): `tahoe-tray-assist` watches `StatusNotifierItem.Activate` calls with `dbus-monitor` and clicks the menu item whose label matches `göster|show|open|aç` for apps listed in `~/.config/tahoe/tray-activate.json` (`{"apps": ["Claude"]}`).
 25. Hyprland ≥ 0.55: `hyprctl keyword` no longer works; use `hyprctl eval '<lua>'` (e.g. `hl.config({ input = { follow_mouse = 1 } })`) to change options at runtime.
 28. **Control Center Wi-Fi row opens a network list** (a `Gtk.Stack` page with back arrow, on/off switch, list, inline password field, "Wi-Fi Ayarları…"). The scan (`nmcli dev wifi rescan`) is started only when that page is opened (or Wi-Fi is switched on); everywhere else networks are read from NetworkManager's cache with `--rescan no`. The panel resets to the main page every time it is shown.
+29. **Bluetooth row** works the same way (`stack` page `bt`): list from `bluetoothctl devices` + parallel `bluetoothctl info <mac>` (alias, icon, paired, connected), icons from BlueZ's `Icon` field, click = connect / disconnect / pair+trust+connect. `bluetoothctl --timeout 9 scan on` runs only when the page is opened or Bluetooth is switched on. BlueZ forgets unpaired devices after a few minutes, so an empty list when nothing is nearby is normal; devices whose name is just a MAC address are hidden.
 
 ## Testing
 

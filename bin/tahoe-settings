@@ -1134,7 +1134,8 @@ class ControlCenter(Gtk.ApplicationWindow):
         self.picons = ['power-profile-power-saver-symbolic', 'power-profile-balanced-symbolic', 'power-profile-performance-symbolic']
         wb.connect('clicked', lambda *_: self.open_wifi())
         _ch = Gtk.Image.new_from_icon_name('go-next-symbolic'); _ch.set_pixel_size(14); _ch.set_opacity(0.6); _ch.set_valign(Gtk.Align.CENTER); wb.get_child().append(_ch)
-        bb.connect('clicked', lambda *_: self.bt_toggle())
+        bb.connect('clicked', lambda *_: self.open_bt())
+        _ch2 = Gtk.Image.new_from_icon_name('go-next-symbolic'); _ch2.set_pixel_size(14); _ch2.set_opacity(0.6); _ch2.set_valign(Gtk.Align.CENTER); bb.get_child().append(_ch2)
         pb.connect('clicked', lambda *_: self.prof_cycle())
         for b in (wb, bb, pb): left.append(b)
         top.append(left)
@@ -1183,7 +1184,7 @@ class ControlCenter(Gtk.ApplicationWindow):
         self.apply_state(D)
         self.stack = Gtk.Stack(); self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT); self.stack.set_transition_duration(160)
         self.stack.set_vhomogeneous(False); self.stack.set_interpolate_size(True); self.stack.set_hexpand(True)
-        self.stack.add_named(outer, 'main'); self.stack.add_named(self.build_wifi_view(), 'wifi')
+        self.stack.add_named(outer, 'main'); self.stack.add_named(self.build_wifi_view(), 'wifi'); self.stack.add_named(self.build_bt_view(), 'bt')
         root = Gtk.Box(); root.add_css_class('tahoe-cc-box'); root.append(self.stack)
         return root
 
@@ -1222,12 +1223,12 @@ class ControlCenter(Gtk.ApplicationWindow):
         return v
 
     def show_main(self):
-        self.pwbox.set_visible(False); self.pw_ssid = None; self.wspin.stop()
+        self.pwbox.set_visible(False); self.pw_ssid = None; self.wspin.stop(); self.bspin.stop(); self._bscan_id += 1
         self.stack.set_visible_child_name('main')
 
     def reset_view(self):
         self.stack.set_visible_child_full('main', Gtk.StackTransitionType.NONE)
-        self.pwbox.set_visible(False); self.pw_ssid = None; self.wspin.stop(); self.pwentry.set_text('')
+        self.pwbox.set_visible(False); self.pw_ssid = None; self.wspin.stop(); self.pwentry.set_text(''); self.bspin.stop(); self._bscan_id += 1
 
     def open_wifi(self):
         """Wi-Fi'ye basılınca: listeyi hemen önbellekten göster, taramayı BU anda başlat."""
@@ -1326,6 +1327,105 @@ class ControlCenter(Gtk.ApplicationWindow):
             else:
                 self.ask_pw(ssid, err=(out.split('\n')[-1][:80] if out else 'Bağlanılamadı'))
         bg(lambda: sh(f"LC_ALL=C nmcli dev wifi connect '{q}' password '{pq}'", 40), done)
+
+    # ───────────── Bluetooth alt görünümü ─────────────
+    def build_bt_view(self):
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        head = Gtk.Box(spacing=8)
+        back = Gtk.Button(icon_name='go-previous-symbolic'); back.add_css_class('cc-media'); back.set_focusable(False)
+        back.connect('clicked', lambda *_: self.show_main())
+        title = Gtk.Label(label='Bluetooth', xalign=0, hexpand=True); title.add_css_class('cc-title-lg')
+        self.bspin = Gtk.Spinner()
+        self.bsw = Gtk.Switch(valign=Gtk.Align.CENTER); self.bsw.connect('notify::active', self.on_bt_switch)
+        for w in (back, title, self.bspin, self.bsw): head.append(w)
+        v.append(head)
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL); card.add_css_class('cc-card')
+        sc = Gtk.ScrolledWindow(); sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sc.set_propagate_natural_height(True); sc.set_max_content_height(320); sc.set_min_content_height(80)
+        self.blist = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        sc.set_child(self.blist); card.append(sc); v.append(card)
+        foot = Gtk.Button(label='Bluetooth Ayarları…'); foot.add_css_class('cc-card'); foot.add_css_class('cc-tilebtn'); foot.set_focusable(False)
+        foot.connect('clicked', lambda *_: (self.daemon.hide(), bg_run('tahoe-settings --pane bluetooth')))
+        v.append(foot)
+        self._bscan_id = 0
+        return v
+
+    def open_bt(self):
+        """Bluetooth'a basılınca: kayıtlı cihazları hemen göster, taramayı BU anda başlat."""
+        self._upd = True; self.bsw.set_active(self.st['bt']); self._upd = False
+        self.stack.set_visible_child_name('bt')
+        self.refresh_bt_list()
+        if self.st['bt']: self.scan_bt()
+
+    def scan_bt(self):
+        self._bscan_id += 1; sid = self._bscan_id; self.bspin.start()
+        def scan():
+            sh('bluetoothctl --timeout 9 scan on', 14); return sid
+        def done(s):
+            if s == self._bscan_id: self.bspin.stop(); self.refresh_bt_list()
+        bg(scan, done)
+        for ms in (2500, 5500):   # tarama sürerken liste canlı güncellensin
+            GLib.timeout_add(ms, lambda sid=sid: (self.refresh_bt_list() if sid == self._bscan_id else None, False)[1])
+
+    def on_bt_switch(self, sw, _):
+        if self._upd: return
+        on = sw.get_active(); self.st['bt'] = on; self._on(self.bc, on); self.bs.set_text('Açık' if on else 'Kapalı')
+        if not on: self._bscan_id += 1; self.bspin.stop(); self.fill_bt_list([], off=True)
+        def work():
+            if on: sh('rfkill unblock bluetooth')
+            sh(f'bluetoothctl power {"on" if on else "off"}', 6)
+            if on: time.sleep(1.0)
+            return on
+        def done(_r):
+            if self.st['bt']: self.refresh_bt_list(); self.scan_bt()
+        bg(work, done)
+
+    def refresh_bt_list(self):
+        if not self.st['bt']: self.fill_bt_list([], off=True); return
+        def work():
+            from concurrent.futures import ThreadPoolExecutor
+            macs = re.findall(r'Device (\S+) (.*)', sh('bluetoothctl devices', 4))
+            with ThreadPoolExecutor(8) as ex: infos = list(ex.map(lambda m: sh(f'bluetoothctl info {m[0]}', 3), macs))
+            devs = []
+            for (mac, name), info in zip(macs, infos):
+                g = lambda k: (re.search(rf'^\s*{k}: (.*)$', info, re.M) or [None, ''])[1].strip()
+                devs.append({'mac': mac, 'name': g('Alias') or name, 'icon': g('Icon'), 'paired': g('Paired') == 'yes', 'connected': g('Connected') == 'yes'})
+            return devs
+        bg(work, lambda d: self.fill_bt_list(d or []))
+
+    def fill_bt_list(self, devs, off=False):
+        while True:
+            c = self.blist.get_first_child()
+            if c is None: break
+            self.blist.remove(c)
+        if off:
+            l = Gtk.Label(label='Bluetooth kapalı', margin_top=24, margin_bottom=24); l.add_css_class('cc-sub'); self.blist.append(l); return
+        # adı MAC adresi olan (kimliği belirsiz) cihazları ele
+        devs = [d for d in devs if not re.fullmatch(r'([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}', d['name'])]
+        if not devs:
+            l = Gtk.Label(label='Cihaz bulunamadı', margin_top=24, margin_bottom=24); l.add_css_class('cc-sub'); self.blist.append(l); return
+        theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+        for d in sorted(devs, key=lambda d: (not d['connected'], not d['paired'], d['name'].lower())):
+            b = Gtk.Button(); b.add_css_class('cc-row'); b.set_focusable(False)
+            h = Gtk.Box(spacing=10, margin_start=4, margin_end=4)
+            ic = d['icon'] + '-symbolic' if d['icon'] else ''
+            if not ic or not theme.has_icon(ic): ic = 'bluetooth-symbolic'
+            img = Gtk.Image.new_from_icon_name(ic); img.set_pixel_size(18); h.append(img)
+            lab = Gtk.Label(label=d['name'], xalign=0, hexpand=True, ellipsize=3); lab.add_css_class('cc-title'); h.append(lab)
+            st = 'Bağlı' if d['connected'] else ('Kayıtlı' if d['paired'] else '')
+            if st:
+                sl = Gtk.Label(label=st); sl.add_css_class('cc-sub'); h.append(sl)
+            b.set_child(h)
+            b.connect('clicked', lambda _b, dd=d: self.bt_action(dd))
+            self.blist.append(b)
+
+    def bt_action(self, d):
+        self.bspin.start(); mac = d['mac']
+        def work():
+            if d['connected']: return sh(f'bluetoothctl disconnect {mac}', 15)
+            if not d['paired']: sh(f'bluetoothctl pair {mac}', 25); sh(f'bluetoothctl trust {mac}', 5)
+            return sh(f'bluetoothctl connect {mac}', 20)
+        bg(work, lambda _o: (self.bspin.stop(), self.refresh_bt_list()))
 
     # ── eylemler ──
     def wifi_toggle(self):
