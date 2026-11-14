@@ -1083,7 +1083,7 @@ class ControlCenter(Gtk.ApplicationWindow):
         # Tüm dış sorgular paralel ve 2 sn zaman aşımıyla: tek bir yavaş komut paneli bekletmesin
         from concurrent.futures import ThreadPoolExecutor
         _q = {'wifi': 'nmcli radio wifi', 'bt': 'bluetoothctl show',
-              'ssid': "LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | head -1 | cut -d: -f2",
+              'ssid': "LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi list --rescan no | grep '^yes' | head -1 | cut -d: -f2",
               'prof': 'powerprofilesctl get', 'dnd': 'swaync-client -D', 'br': 'brightnessctl -m | cut -d, -f4',
               'vol': 'wpctl get-volume @DEFAULT_AUDIO_SINK@', 'title': 'playerctl metadata title 2>/dev/null',
               'artist': 'playerctl metadata artist 2>/dev/null', 'art': 'playerctl metadata mpris:artUrl 2>/dev/null',
@@ -1125,7 +1125,7 @@ class ControlCenter(Gtk.ApplicationWindow):
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4); left.add_css_class('cc-card')
 
         st = {'wifi': D['wifi'] == 'enabled', 'bt': 'Powered: yes' in D['bt']}
-        def ssid(): return sh("LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | head -1 | cut -d: -f2") or ('Bağlı değil' if st['wifi'] else 'Kapalı')
+        def ssid(): return sh("LC_ALL=C nmcli -t -f ACTIVE,SSID dev wifi list --rescan no | grep '^yes' | head -1 | cut -d: -f2") or ('Bağlı değil' if st['wifi'] else 'Kapalı')
         wb, wc, ws = row('network-wireless-symbolic', 'Wi-Fi', (D['ssid'] or ('Bağlı değil' if st['wifi'] else 'Kapalı')), st['wifi'], lambda: None)
         def wifi_toggle():
             st['wifi'] = not st['wifi']; set_on(wc, st['wifi']); ws.set_text('Açılıyor…' if st['wifi'] else 'Kapalı')
