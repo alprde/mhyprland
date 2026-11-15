@@ -56,14 +56,15 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 | `⌘ B` | Firefox |
 | `⌘ C` | VS Code |
 | `⌘ Space` / `⌘ D` | Spotlight |
-| `⌘ Tab` | Window switcher |
+| `⌘ Tab` | **Mission Control** (all desktops and windows) |
+| `⌘ ⌥ Tab` | Window switcher (list) |
 | `⌘ ,` | System Settings |
 | `⌘ Q` | Close window |
 | `⌘ F` / `⌘ V` | Fullscreen / floating |
 | `⌘ M` / `⌘ ⇧ M` | Minimize window / show minimized windows |
 | `⌘ 1…0`, `⌘ ⇧ 1…0` | Switch workspace / move window |
 | `⌘ ⌃ ←` / `⌘ ⌃ →` | Previous / next workspace |
-| `⌘ ⌃ ↑` / 3-finger swipe up | **Mission Control** (overview of all desktops and windows) |
+| `⌘ ⌃ ↑` / 3-finger swipe up | Mission Control (also) |
 | `⌘` + mouse wheel | Previous / next workspace |
 | 3-finger swipe left/right | Switch workspace (touchpad) |
 | Mouse wheel tilt left/right | Previous / next workspace (opt-in per mouse, see `hyprland.lua`) |

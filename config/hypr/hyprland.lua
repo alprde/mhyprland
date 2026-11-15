@@ -74,7 +74,8 @@ hl.bind(mod .. " + B",      hl.dsp.exec_cmd("firefox"))                         
 hl.bind(mod .. " + C",      hl.dsp.exec_cmd("code --ozone-platform-hint=auto"))          -- VS Code
 hl.bind(mod .. " + D",      hl.dsp.exec_cmd(menu))
 hl.bind(mod .. " + space",  hl.dsp.exec_cmd("rofi -show drun"))
-hl.bind(mod .. " + Tab",    hl.dsp.exec_cmd("rofi -show window"))
+hl.bind(mod .. " + Tab",    hl.dsp.exec_cmd("tahoe-cc mission"))                    -- Win+Tab: Mission Control
+hl.bind(mod .. " + ALT + Tab", hl.dsp.exec_cmd("rofi -show window"))                  -- pencere değiştirici (liste)
 hl.bind(mod .. " + comma",  hl.dsp.exec_cmd("tahoe-settings"))
 hl.bind(mod .. " + CTRL + Q", hl.dsp.exec_cmd("hyprlock"))
 hl.bind(mod .. " + ALT + Escape", hl.dsp.exec_cmd("tahoe-forcequit"))
