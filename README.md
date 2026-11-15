@@ -67,7 +67,7 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 | `⌘ ⌃ ↑` / 3-finger swipe up | Mission Control (also) |
 | `⌘` + mouse wheel | Previous / next workspace |
 | 3-finger swipe left/right | Switch workspace (touchpad) |
-| Mouse wheel tilt left/right | Previous / next workspace (opt-in per mouse, see `hyprland.lua`) |
+| Mouse wheel tilt left/right | Previous / next workspace (bound to a Logitech G502 X Plus by device name; add your mouse's name in `hyprland.lua`, see `hyprctl devices`) |
 | `⌘ ⇧ 3`, `⌘ ⇧ 4` | Screenshot (screen / region) to clipboard |
 | `⌘ ⌃ Q` | Lock screen |
 | `⌥ ⌘ Esc` | Force Quit |

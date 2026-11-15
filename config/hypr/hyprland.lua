@@ -62,12 +62,12 @@ hl.bind(mod .. " + CTRL + right", hl.dsp.focus({ workspace = "+1" }))   -- sonra
 hl.bind(mod .. " + mouse_down",   hl.dsp.focus({ workspace = "+1" }))   -- Super + tekerlek aşağı
 hl.bind(mod .. " + mouse_up",     hl.dsp.focus({ workspace = "-1" }))   -- Super + tekerlek yukarı
 
--- Fare tekerleğinin yana yatırılması (tilt) → masaüstü değiştir. Yalnızca BELİRLİ fareye bağlanır, böylece
--- dokunmatik yüzeyin yatay kaydırması etkilenmez. Fare adınızı öğrenmek için: hyprctl devices  (mice bölümü)
--- ve aşağıdaki satırların başındaki "--" işaretlerini kaldırıp adı yazın:
--- local tilt_mouse = { device = { inclusive = true, list = { "fare-adiniz" } } }
--- hl.bind("mouse_right", hl.dsp.focus({ workspace = "+1" }), tilt_mouse)   -- sağa yatır → sonraki masaüstü
--- hl.bind("mouse_left",  hl.dsp.focus({ workspace = "-1" }), tilt_mouse)   -- sola yatır → önceki masaüstü
+-- Fare tekerleğinin yana yatırılması (tilt) → masaüstü değiştir. Yalnızca adı aşağıdaki listede olan fareye bağlanır
+-- (dokunmatik yüzeyin yatay kaydırması etkilenmez, listede olmayan fareler için bu satırlar hiçbir şey yapmaz).
+-- Kendi farenizin adı için: hyprctl devices  (mice bölümü) ve listeye ekleyin.
+local tilt_mouse = { device = { inclusive = true, list = { "logitech-g502-x-plus-1", "logitech-g502-x-plus" } } }
+hl.bind("mouse_right", hl.dsp.focus({ workspace = "+1" }), tilt_mouse)   -- sağa yatır → sonraki masaüstü
+hl.bind("mouse_left",  hl.dsp.focus({ workspace = "-1" }), tilt_mouse)   -- sola yatır → önceki masaüstü
 
 hl.bind(mod .. " + Return", hl.dsp.exec_cmd(terminal))
 hl.bind(mod .. " + B",      hl.dsp.exec_cmd("firefox"))                                  -- tarayıcı
