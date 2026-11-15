@@ -46,6 +46,7 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 - **Control Center** (a popup under the menu bar, opens instantly via a small background daemon; closes on outside click or `Esc`): Wi-Fi, Bluetooth, dark mode, Do Not Disturb, brightness, volume, power profile, now playing.
 - **Tray helper**: left-clicking tray apps that ignore it (e.g. Claude Desktop) now opens them (`tahoe-tray-assist`).
 - **Mission Control**: an overview of all desktops (top strip with real preview of the current one) and the windows of the desktop under the pointer; click a desktop or a window to jump to it, `+` creates a new desktop, `Esc` closes. Runs inside the same background daemon as the Control Center (opens in ~140 ms).
+- **Wallpapers**: 7 landscape photos (all CC0 / public domain, see [`share/wallpapers/CREDITS.md`](share/wallpapers/CREDITS.md)) are installed with the theme; the first one is the default. Pick another in System Settings → Wallpaper, or add your own. Optional: `./install.sh --login-wallpapers` (sudo) installs them system-wide as standard KDE wallpaper packages so you can also choose one for the login screen (System Settings → Login Screen).
 - **Spotlight** (rofi), **Dock** (nwg-dock-hyprland), **notifications** (swaync), **lock screen** (hyprlock), **idle/lock/suspend** (hypridle), generated **GTK3/GTK4 theme** "Tahoe".
 
 ### Shortcuts · Kısayollar (`⌘` = Super)

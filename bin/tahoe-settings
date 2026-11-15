@@ -749,9 +749,35 @@ def make_wall(c1, c2, c3, path):
     img = img * (1 - gl * 0.6) + np.array(c3) * gl * 0.6
     Image.fromarray(img.clip(0, 255).astype('uint8')).save(path)
 
-def set_wall(path):
+WALL_DIR = f'{HOME}/.local/share/tahoe/walls'
+WALL_NAMES = {'01-bulutlu-dag-golu': 'Bulutlu Dağ Gölü', '02-moraine-golu': 'Moraine Gölü', '03-sakin-deniz-gunbatimi': 'Sakin Deniz',
+              '04-hues-castle-vadisi': 'Vadide Gün Batımı', '05-aurora-golu': 'Aurora', '06-mt-hood-yansima': 'Mt Hood Yansıması', '07-kutup-isiklari': 'Kutup Işıkları'}
+
+def photo_list():
+    return sorted(glob.glob(f'{WALL_DIR}/*.jpg') + glob.glob(f'{WALL_DIR}/*.jpeg'))
+
+def wall_label(path):
+    base = os.path.splitext(os.path.basename(path))[0]
+    return WALL_NAMES.get(base) or re.sub(r'^\d+-', '', base).replace('-', ' ').title()
+
+def wall_thumb(path):
+    """Önbellekli küçük önizleme (2560 px'lik fotoğrafı her seferinde çözmeyelim)."""
+    cd = f'{HOME}/.cache/tahoe/thumbs'; os.makedirs(cd, exist_ok=True)
+    out = f"{cd}/{os.path.splitext(os.path.basename(path))[0]}.{int(os.path.getmtime(path))}.png"
+    if not os.path.exists(out):
+        from PIL import Image
+        im = Image.open(path).convert('RGB'); im.thumbnail((480, 270)); im.save(out)
+    return out
+
+def save_wall(path):
+    """Seçilen resmi (JPEG de olsa) hyprpaper/hyprlock'un kullandığı wallpaper.png'ye çevirir."""
     dst = f'{HYPR}/wallpaper.png'
-    if os.path.abspath(path) != dst: shutil.copy(path, dst)
+    if os.path.abspath(path) != dst:
+        from PIL import Image
+        os.makedirs(HYPR, exist_ok=True); Image.open(path).convert('RGB').save(dst, 'PNG')
+
+def set_wall(path):
+    save_wall(path)
     sh('pkill hyprpaper'); time.sleep(0.4); bg_run('hyprpaper')
 
 def pane_wall():
@@ -768,20 +794,30 @@ def pane_wall():
             set_wall(file.get_path()); pic.set_filename(f'{HYPR}/wallpaper.png')
         d.open(APP.props.active_window, None, done)
     g.add(r_button('Resim seç', 'Seç…', pick, 'Kendi fotoğrafınızı duvar kağıdı yapın'))
-    g2 = grp('Hazır duvar kağıtları')
-    fb = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=3, min_children_per_line=2, column_spacing=10, row_spacing=10, margin_top=8, margin_bottom=8)
-    os.makedirs(f'{HOME}/.local/share/tahoe/walls', exist_ok=True)
+    def tiles(items, per_line=3):
+        fb = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=per_line, min_children_per_line=2, column_spacing=10, row_spacing=10, margin_top=8, margin_bottom=8)
+        for label, thumb, full in items:
+            btn = Gtk.Button(); btn.add_css_class('flat')
+            v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            im = Gtk.Picture.new_for_filename(thumb); im.set_size_request(168, 94); im.set_content_fit(Gtk.ContentFit.COVER); im.set_overflow(Gtk.Overflow.HIDDEN); im.add_css_class('card')
+            v.append(im); v.append(Gtk.Label(label=label)); btn.set_child(v)
+            btn.connect('clicked', lambda _b, p=full: (set_wall(p), pic.set_filename(f'{HYPR}/wallpaper.png')))
+            fb.append(btn)
+        return fb
+    os.makedirs(WALL_DIR, exist_ok=True)
+    pages = [g]
+    photos = photo_list()
+    if photos:
+        gp = grp('Fotoğraflar', 'Telif sorunu olmayan (CC0) manzara fotoğrafları')
+        gp.add(tiles([(wall_label(f), wall_thumb(f), f) for f in photos])); pages.append(gp)
+    g2 = grp('Renkli geçişler')
+    grads = []
     for name, a, b, c in WALLS:
-        p = f'{HOME}/.local/share/tahoe/walls/{name}.png'
-        if not os.path.exists(p): make_wall(a, b, c, p)
-        btn = Gtk.Button(); btn.add_css_class('flat')
-        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        im = Gtk.Picture.new_for_filename(p); im.set_size_request(160, 90); im.set_content_fit(Gtk.ContentFit.COVER); im.set_overflow(Gtk.Overflow.HIDDEN); im.add_css_class('card')
-        v.append(im); v.append(Gtk.Label(label=name)); btn.set_child(v)
-        btn.connect('clicked', lambda _b, p=p: (set_wall(p), pic.set_filename(f'{HYPR}/wallpaper.png')))
-        fb.append(btn)
-    g2.add(fb)
-    return new_page(g, g2)
+        pth = f'{WALL_DIR}/{name}.png'
+        if not os.path.exists(pth): make_wall(a, b, c, pth)
+        grads.append((name, pth, pth))
+    g2.add(tiles(grads)); pages.append(g2)
+    return new_page(*pages)
 
 def pane_notifications():
     g = grp('Odaklanma')
@@ -1946,12 +1982,16 @@ class TahoeApp(Adw.Application):
         w.present()
 
 def default_wallpaper():
-    os.makedirs(f'{HOME}/.local/share/tahoe/walls', exist_ok=True)
-    for name, a, b, c in WALLS:
-        p = f'{HOME}/.local/share/tahoe/walls/{name}.png'
-        if not os.path.exists(p): make_wall(a, b, c, p)
+    os.makedirs(WALL_DIR, exist_ok=True)
     dst = f'{HYPR}/wallpaper.png'
-    if not os.path.exists(dst): shutil.copy(f'{HOME}/.local/share/tahoe/walls/{WALLS[0][0]}.png', dst)
+    if os.path.exists(dst): return                      # kullanıcının seçimini ezme
+    photos = photo_list()
+    if photos:
+        save_wall(photos[0]); return
+    for name, a, b, c in WALLS:
+        pth = f'{WALL_DIR}/{name}.png'
+        if not os.path.exists(pth): make_wall(a, b, c, pth)
+    save_wall(f'{WALL_DIR}/{WALLS[0][0]}.png')
 
 def main():
     global APP

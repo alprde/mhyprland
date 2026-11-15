@@ -12,13 +12,14 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$HOME/.config-backup-tahoe-$STAMP"
 STATE="$HOME/.local/share/tahoe"
 
-NO_PKG=0; DRY=0; YES=0; UNINSTALL=0
+NO_PKG=0; DRY=0; YES=0; UNINSTALL=0; LOGIN_WP=0
 for a in "$@"; do
   case "$a" in
     --no-packages) NO_PKG=1 ;;
     --dry-run)     DRY=1 ;;
     -y|--yes)      YES=1 ;;
     --uninstall)   UNINSTALL=1 ;;
+    --login-wallpapers) LOGIN_WP=1 ;;
     -h|--help)
       cat <<EOF
 Tahoe Hyprland installer
@@ -26,6 +27,8 @@ Tahoe Hyprland installer
   --no-packages   do not install packages (files only)       / paket kurma
   --dry-run       print what would happen, change nothing     / sadece göster
   --yes           do not ask for confirmation                 / onay sorma
+  --login-wallpapers  also install the photos system-wide (sudo) so they can be chosen as the login-screen wallpaper
+                  / fotoğrafları sisteme de kur (sudo): giriş ekranı duvar kağıdı olarak seçilebilsin
   --uninstall     remove Tahoe and restore the last backup    / kaldır, yedeği geri yükle
 EOF
       exit 0 ;;
@@ -124,6 +127,8 @@ run mkdir -p "$HOME/.local/bin" "$STATE" "$HOME/.themes/Tahoe/gtk-3.0" "$HOME/.t
 run cp "$SRC"/bin/tahoe-* "$HOME/.local/bin/"
 run chmod +x "$HOME"/.local/bin/tahoe-*
 run cp "$SRC/share/tahoe/base.css" "$STATE/base.css"
+run mkdir -p "$STATE/walls"
+run cp "$SRC"/share/wallpapers/*.jpg "$STATE/walls/"
 run mkdir -p "$HOME/.local/share/fonts"
 if [ "$DRY" = 0 ]; then python3 "$SRC/tools/make-icon-font.py" "$HOME/.local/share/fonts/TahoeIcons.ttf" && fc-cache -f "$HOME/.local/share/fonts" >/dev/null 2>&1 || true; fi
 run cp "$SRC/themes/Tahoe/index.theme" "$HOME/.themes/Tahoe/index.theme"
@@ -151,6 +156,10 @@ if [ "$DRY" = 0 ]; then
   tahoe-settings --apply
 fi
 
+if [ "$LOGIN_WP" = 1 ]; then
+  say "Installing login-screen wallpapers (sudo)…" "Giriş ekranı duvar kağıtları kuruluyor (sudo)…"
+  run sudo bash "$SRC/tools/install-login-wallpapers.sh" || warn "Could not install system-wide wallpapers." "Sistem geneli duvar kağıtları kurulamadı."
+fi
 echo
 say "${B}Done!${N}" "${B}Tamamlandı!${N}"
 if tr_lang; then
@@ -160,6 +169,7 @@ Sıradaki adımlar:
   2. Giriş ekranında oturum olarak ${B}Hyprland${N} seçin.
   3. İlk açılışta ekranlarınız otomatik algılanır.
   4. Super+, → Sistem Ayarları · Super+Space → Spotlight · Menü çubuğundaki  → Apple menüsü.
+Giriş ekranı duvar kağıdı için (isteğe bağlı): ./install.sh --login-wallpapers  →  Sistem Ayarları → Giriş Ekranı
 Geri almak için: ./install.sh --uninstall   (yedek: $BACKUP)
 EOF
 else
