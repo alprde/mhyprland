@@ -53,6 +53,8 @@ hl.config({
 })
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+hl.gesture({ fingers = 3, direction = "up", action = function() hl.exec_cmd("tahoe-cc mission") end })   -- 3 parmak yukarı: Mission Control
+hl.bind(mod .. " + CTRL + up", hl.dsp.exec_cmd("tahoe-cc mission"))      -- Super+Ctrl+Yukarı: Mission Control
 
 -- Masaüstleri arasında geçiş (tıklamasız)
 hl.bind(mod .. " + CTRL + left",  hl.dsp.focus({ workspace = "-1" }))   -- önceki masaüstü (1'de durur)

@@ -45,6 +45,7 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 - **System Settings** (`tahoe-settings`, GTK4/libadwaita), 21 panes: Wi-Fi, Bluetooth, Network, Battery, General (about/storage/updates), Appearance (light/dark + 8 accent colors), Accessibility, Desktop & Dock, Displays (draggable layout, scaled resolutions, refresh rate, rotation, mirroring, VRR, night light), Wallpaper, Notifications & Focus, Sound, Lock Screen, Privacy & Security, Login Items, Users, Keyboard, Mouse & Trackpad, Printers, Date & Time, Language & Region.
 - **Control Center** (a popup under the menu bar, opens instantly via a small background daemon; closes on outside click or `Esc`): Wi-Fi, Bluetooth, dark mode, Do Not Disturb, brightness, volume, power profile, now playing.
 - **Tray helper**: left-clicking tray apps that ignore it (e.g. Claude Desktop) now opens them (`tahoe-tray-assist`).
+- **Mission Control**: an overview of all desktops (top strip with real preview of the current one) and the windows of the desktop under the pointer; click a desktop or a window to jump to it, `+` creates a new desktop, `Esc` closes. Runs inside the same background daemon as the Control Center (opens in ~140 ms).
 - **Spotlight** (rofi), **Dock** (nwg-dock-hyprland), **notifications** (swaync), **lock screen** (hyprlock), **idle/lock/suspend** (hypridle), generated **GTK3/GTK4 theme** "Tahoe".
 
 ### Shortcuts · Kısayollar (`⌘` = Super)
@@ -62,6 +63,7 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 | `⌘ M` / `⌘ ⇧ M` | Minimize window / show minimized windows |
 | `⌘ 1…0`, `⌘ ⇧ 1…0` | Switch workspace / move window |
 | `⌘ ⌃ ←` / `⌘ ⌃ →` | Previous / next workspace |
+| `⌘ ⌃ ↑` / 3-finger swipe up | **Mission Control** (overview of all desktops and windows) |
 | `⌘` + mouse wheel | Previous / next workspace |
 | 3-finger swipe left/right | Switch workspace (touchpad) |
 | Mouse wheel tilt left/right | Previous / next workspace (opt-in per mouse, see `hyprland.lua`) |
