@@ -56,6 +56,7 @@ fi
 
 mkdir -p "$ROOT/usr/local/bin" "$ROOT/usr/local/sbin" "$ROOT/usr/share/tahoe" "$GD" "$ROOT/var/cache/tahoe-greeter"
 install -m 0755 "$HERE/bin/tahoe-greeter" "$ROOT/usr/local/bin/tahoe-greeter"
+install -m 0755 "$HERE/tools/tahoe-session" "$ROOT/usr/local/bin/tahoe-session"
 install -m 0644 "$BG" "$ROOT/usr/share/tahoe/login-background.jpg"
 cat > "$GD/tahoe-greeter.conf" <<EOF
 [greeter]

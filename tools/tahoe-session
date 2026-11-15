@@ -1,0 +1,6 @@
+#!/bin/sh
+# greetd oturum başlatıcı sarmalayıcı. NOT: greetd komutu kullanıcının kabuğu (fish olabilir) üzerinden, argümanları
+# boşlukla birleştirerek çalıştırır → karmaşık kabuk kodu doğrudan komut olarak verilemez, bu yüzden ayrı dosya.
+printf '\033[?25l\033[2J\033[H' 2>/dev/null >/dev/tty   # terminali temizle, imleci gizle
+if command -v systemd-cat >/dev/null 2>&1; then exec systemd-cat -t tahoe-session "$@"; fi   # çıktı VT'ye değil günlüğe
+exec "$@"
