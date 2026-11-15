@@ -120,7 +120,9 @@ window#waybar {{ background: {p['PANEL']}; color: {p['FG']}; border-bottom: 1px 
 #workspaces button.active {{ color: {p['FG']}; }}
 #workspaces button:hover {{ background: rgba({ov},0.12); border-radius: 8px; }}
 #pulseaudio, #network, #battery, #clock.time, #clock.notif, #clock.spotlight, #clock.control, #bluetooth {{ padding: 0 8px; }}
-#clock.apple, #clock.spotlight, #clock.control, #clock.notif, #network, #pulseaudio, #bluetooth {{ font-family: "JetBrainsMono NFM", "Inter"; min-width: 22px; font-size: 20px; }}
+#clock.apple, #clock.spotlight, #clock.notif, #network, #pulseaudio, #bluetooth {{ font-family: "JetBrainsMono NFM", "Inter"; min-width: 22px; font-size: 20px; }}
+#clock.control, #battery {{ font-family: "TahoeIcons"; min-width: 22px; font-size: 22px; }}
+#battery.charging {{ color: #30d158; }}
 #network, #pulseaudio {{ font-size: 23px; }}
 #clock.time {{ font-weight: 600; }}
 #clock.apple:hover, #window:hover, #clock.spotlight:hover, #clock.control:hover, #network:hover, #pulseaudio:hover, #battery:hover, #clock.time:hover, #clock.notif:hover {{ background: rgba({ov},0.14); }}

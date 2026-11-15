@@ -81,7 +81,7 @@ PKGS=(
   hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpaper hyprlock hypridle hyprpolkitagent hyprshot hyprsunset
   kitty waybar rofi swaync nwg-dock-hyprland grim slurp wl-clipboard cliphist brightnessctl playerctl jq
   pipewire pipewire-pulse wireplumber pavucontrol networkmanager nm-connection-editor bluez bluez-utils power-profiles-daemon
-  dbus gtk4-layer-shell python python-gobject python-cairo python-numpy python-pillow gtk4 libadwaita
+  dbus gtk4-layer-shell python-fonttools python python-gobject python-cairo python-numpy python-pillow gtk4 libadwaita
   inter-font ttf-jetbrains-mono-nerd otf-font-awesome capitaine-cursors breeze-icons adwaita-icon-theme
 )
 [ "${NEED_GIT:-0}" = 1 ] && PKGS+=(git)
@@ -124,6 +124,8 @@ run mkdir -p "$HOME/.local/bin" "$STATE" "$HOME/.themes/Tahoe/gtk-3.0" "$HOME/.t
 run cp "$SRC"/bin/tahoe-* "$HOME/.local/bin/"
 run chmod +x "$HOME"/.local/bin/tahoe-*
 run cp "$SRC/share/tahoe/base.css" "$STATE/base.css"
+run mkdir -p "$HOME/.local/share/fonts"
+if [ "$DRY" = 0 ]; then python3 "$SRC/tools/make-icon-font.py" "$HOME/.local/share/fonts/TahoeIcons.ttf" && fc-cache -f "$HOME/.local/share/fonts" >/dev/null 2>&1 || true; fi
 run cp "$SRC/themes/Tahoe/index.theme" "$HOME/.themes/Tahoe/index.theme"
 run cp "$SRC/config/hypr/hyprland.lua" "$HOME/.config/hypr/hyprland.lua"
 for t in hyprlock.conf hyprpaper.conf; do
