@@ -17,11 +17,11 @@ choice=$( {
   item 'Zorla Çık…' '⌥⌘ Esc'
   sep
   item 'Uyku' ''
-  item 'Yeniden Başlat…' ''
-  item 'Kapat…' ''
+  item 'Yeniden Başlat' ''
+  item 'Kapat' ''
   sep
   item 'Ekranı Kilitle' '⌃⌘ Q'
-  item "Oturumu Kapat ${USER}…" '⇧⌘ E'
+  item "Oturumu Kapat ${USER}" '⇧⌘ E'
 } | rofi -dmenu -i -markup-rows -no-custom -p "" -format s -theme ~/.config/rofi/apple.rasi | sed 's/ *<span.*//')
 case "$choice" in
   "Bu Mac Hakkında") exec tahoe-settings --pane general ;;
@@ -30,8 +30,8 @@ case "$choice" in
   "Son Kullanılan Öğeler") exec tahoe-recent ;;
   "Zorla Çık…") exec tahoe-forcequit ;;
   "Uyku") hyprlock & sleep 0.6; exec systemctl suspend ;;
-  "Yeniden Başlat…") confirm "Bilgisayar yeniden başlatılsın mı?" "Yeniden Başlat" && exec systemctl reboot ;;
-  "Kapat…") confirm "Bilgisayar kapatılsın mı?" "Kapat" && exec systemctl poweroff ;;
+  "Yeniden Başlat") exec systemctl reboot ;;
+  "Kapat") exec systemctl poweroff ;;
   "Ekranı Kilitle") exec hyprlock ;;
-  "Oturumu Kapat"*) confirm "Oturum kapatılsın mı?" "Oturumu Kapat" && exec hyprctl dispatch 'hl.dsp.exit()' ;;
+  "Oturumu Kapat"*) exec hyprctl dispatch 'hl.dsp.exit()' ;;
 esac
