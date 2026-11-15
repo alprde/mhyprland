@@ -100,6 +100,15 @@ def list_sessions():
 
 
 LAST = '/var/cache/tahoe-greeter/last-session'
+TLOG = '/var/cache/tahoe-greeter/login-timing.log'
+
+
+def tlog(msg):
+    """Giriş süresi ölçümü (greeter kullanıcısının yazabildiği önbellek klasörüne)."""
+    try:
+        import time
+        with open(TLOG, 'a') as f: f.write(f'{time.strftime("%H:%M:%S")}.{int(time.time() * 1000) % 1000:03d} {msg}\n')
+    except Exception: pass
 
 
 def greetd_login(user, password, session=None):
@@ -244,7 +253,9 @@ class Win(Gtk.ApplicationWindow):
         threading.Thread(target=self.work, args=(pw,), daemon=True).start()
 
     def work(self, pw):
+        tlog('parola gönderildi')
         ok, err = greetd_login(USER, pw, self.session)
+        tlog(f'greetd yanıtı: ok={ok} {err}')
         if ok and not DEMO:
             try: os.makedirs(os.path.dirname(LAST), exist_ok=True); open(LAST, 'w').write(self.session)
             except Exception: pass
@@ -252,7 +263,9 @@ class Win(Gtk.ApplicationWindow):
 
     def done(self, ok, err):
         if ok:
-            self.get_application().quit(); return
+            tlog('greeter çıkıyor')
+            if DEMO: self.get_application().quit(); return
+            os._exit(0)   # GTK/cage'in temiz kapanmasını beklemeden hemen çık: greetd oturumu hemen başlatsın
         self.busy = False
         self.entry.set_sensitive(True); self.entry.set_text(''); self.entry.set_placeholder_text(T_WRONG); self.entry.grab_focus()
         sys.stderr.write(f'giriş başarısız: {err}\n')
