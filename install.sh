@@ -139,6 +139,7 @@ run cp "$SRC/config/hypr/hyprland.lua" "$HOME/.config/hypr/hyprland.lua"
 for t in hyprlock.conf hyprpaper.conf; do
   if [ "$DRY" = 1 ]; then echo "   [dry-run] template $t"; else sed "s|__HOME__|$HOME|g" "$SRC/config/hypr/$t.tpl" > "$HOME/.config/hypr/$t"; fi
 done
+if [ "$DRY" = 0 ]; then python3 "$SRC/tools/make-avatar.py" "$HOME/.cache/tahoe/avatar.png" "$USER" 2>/dev/null || true; fi
 run cp "$SRC/config/waybar/config.jsonc" "$HOME/.config/waybar/config.jsonc"
 run cp "$SRC"/config/rofi/*.rasi "$HOME/.config/rofi/"
 run cp "$SRC/config/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
