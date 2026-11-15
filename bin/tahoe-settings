@@ -1101,13 +1101,14 @@ class PillSlider(Gtk.DrawingArea):
         import math, cairo
         d = self.D; r = d / 2; dark = S['dark']; y0 = (h - d) / 2
         self._pill(cr, 0, y0, w, d); cr.set_source_rgba(1, 1, 1, 0.20) if dark else cr.set_source_rgba(0, 0, 0, 0.11); cr.fill()
-        fe = d + self.v / 100 * (w - d)                       # dolgunun sağ ucu = yuvarlağın sağ kenarı
-        cx, cy = fe - r, y0 + r
-        # yuvarlağın GÖLGESİ: biraz aşağıda, yumuşak (macOS'taki gibi sağda ve altta görünür)
-        g = cairo.RadialGradient(cx, cy + 1.6, r * 0.82, cx, cy + 1.6, r + 5.5)
-        g.add_color_stop_rgba(0.0, 0, 0, 0, 0.34); g.add_color_stop_rgba(0.45, 0, 0, 0, 0.16); g.add_color_stop_rgba(1.0, 0, 0, 0, 0.0)
-        cr.set_source(g); cr.arc(cx, cy + 1.6, r + 5.5, 0, 2 * math.pi); cr.fill()
+        fe = d + self.v / 100 * (w - d)                       # dolgunun sağ ucu
         self._pill(cr, 0, y0, fe, d); cr.set_source_rgb(1, 1, 1); cr.fill()
+        cx, cy = fe - r, y0 + r                               # yuvarlak (knob) merkezi
+        # knob'un gölgesi: dolgunun ÜSTÜNE, her yanında görünür (sol tarafta beyaz dolgu üzerinde de)
+        g = cairo.RadialGradient(cx, cy + 0.8, r * 0.9, cx, cy + 0.8, r + 4.5)
+        g.add_color_stop_rgba(0.0, 0, 0, 0, 0.30); g.add_color_stop_rgba(0.22, 0, 0, 0, 0.24); g.add_color_stop_rgba(1.0, 0, 0, 0, 0.0)
+        cr.set_source(g); cr.arc(cx, cy + 0.8, r + 4.5, 0, 2 * math.pi); cr.fill()
+        cr.arc(cx, cy, r, 0, 2 * math.pi); cr.set_source_rgb(1, 1, 1); cr.fill()   # knob: bar yüksekliğinde beyaz daire
 
 
 def fetch_state():
