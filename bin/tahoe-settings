@@ -974,7 +974,7 @@ window.tahoe-cc-win {{ background: transparent; box-shadow: none; }}
 window.tahoe-catcher {{ background: rgba(0,0,0,0.01); box-shadow: none; }}
 .tahoe-cc-box {{ background-color: {panel}; color: {fg}; padding: 10px; border-radius: 18px; border: 1px solid rgba({ov},0.14); box-shadow: 0 14px 40px rgba(0,0,0,0.45); }}
 .cc-card {{ background-color: {card}; border-radius: 12px; padding: 10px; }}
-.cc-scard {{ padding: 8px 10px 10px 10px; }}
+.cc-scard {{ padding: 8px 10px 7px 10px; }}
 button.cc-tilebtn {{ padding: 6px; }}
 button.cc-card {{ background-image: none; border: none; box-shadow: none; color: {fg}; }}
 button.cc-card:hover {{ background-color: {cardh}; }}
@@ -1070,12 +1070,13 @@ class SettingsWindow(Adw.ApplicationWindow):
 # ───────────────────────── Denetim Merkezi ─────────────────────────
 class PillSlider(Gtk.DrawingArea):
     """macOS Denetim Merkezi kaydırıcısı: beyaz dolgu, yuvarlak dolgunun İÇİNDE sağ ucuna yaslı (en az 1 yuvarlak görünür)."""
-    D = 21
+    D = 21          # çubuk (ve yuvarlak) yüksekliği
+    H = 27          # widget yüksekliği: gölgeye yer bırakır
 
     def __init__(self, cb):
         super().__init__()
         self.cb = cb; self.v = 0.0; self._x0 = 0.0
-        self.set_content_height(self.D); self.set_hexpand(True); self.set_draw_func(self.draw)
+        self.set_content_height(self.H); self.set_hexpand(True); self.set_draw_func(self.draw)
         g = Gtk.GestureDrag(); g.connect('drag-begin', lambda g_, x, y: (setattr(self, '_x0', x), self._set_from_x(x)))
         g.connect('drag-update', lambda g_, dx, dy: self._set_from_x(self._x0 + dx)); self.add_controller(g)
 
@@ -1085,7 +1086,7 @@ class PillSlider(Gtk.DrawingArea):
     def get_value(self): return self.v
 
     def _set_from_x(self, x):
-        w = max(1, self.get_width()); d = max(1, self.get_height())
+        w = max(1, self.get_width()); d = self.D
         v = max(0.0, min(100.0, (x - d / 2) / max(1, (w - d)) * 100))
         changed = int(v) != int(self.v); self.v = v; self.queue_draw()
         if changed: self.cb(v)
@@ -1097,13 +1098,16 @@ class PillSlider(Gtk.DrawingArea):
         cr.new_sub_path(); cr.arc(x + w - r, y + r, r, -math.pi / 2, math.pi / 2); cr.arc(x + r, y + r, r, math.pi / 2, 3 * math.pi / 2); cr.close_path()
 
     def draw(self, area, cr, w, h):
-        import math
-        d = h; dark = S['dark']; r = d / 2          # yuvarlağın çapı = çubuğun GERÇEK yüksekliği
-        self._pill(cr, 0, 0, w, h); cr.set_source_rgba(1, 1, 1, 0.18) if dark else cr.set_source_rgba(0, 0, 0, 0.12); cr.fill()
+        import math, cairo
+        d = self.D; r = d / 2; dark = S['dark']; y0 = (h - d) / 2
+        self._pill(cr, 0, y0, w, d); cr.set_source_rgba(1, 1, 1, 0.20) if dark else cr.set_source_rgba(0, 0, 0, 0.11); cr.fill()
         fe = d + self.v / 100 * (w - d)                       # dolgunun sağ ucu = yuvarlağın sağ kenarı
-        for k in range(6):                                    # yuvarlağın yumuşak gölgesi (çizgi değil)
-            cr.arc(fe - r + 0.6, r + 1.2, r + k * 0.7, 0, 2 * math.pi); cr.set_source_rgba(0, 0, 0, 0.055 * (6 - k) / 6 + 0.01); cr.fill()
-        self._pill(cr, 0, 0, fe, h); cr.set_source_rgb(1, 1, 1); cr.fill()
+        cx, cy = fe - r, y0 + r
+        # yuvarlağın GÖLGESİ: biraz aşağıda, yumuşak (macOS'taki gibi sağda ve altta görünür)
+        g = cairo.RadialGradient(cx, cy + 1.6, r * 0.82, cx, cy + 1.6, r + 5.5)
+        g.add_color_stop_rgba(0.0, 0, 0, 0, 0.34); g.add_color_stop_rgba(0.45, 0, 0, 0, 0.16); g.add_color_stop_rgba(1.0, 0, 0, 0, 0.0)
+        cr.set_source(g); cr.arc(cx, cy + 1.6, r + 5.5, 0, 2 * math.pi); cr.fill()
+        self._pill(cr, 0, y0, fe, d); cr.set_source_rgb(1, 1, 1); cr.fill()
 
 
 def fetch_state():
@@ -1203,9 +1207,9 @@ class ControlCenter(Gtk.ApplicationWindow):
 
         # ── kaydırıcılar ──
         def slider_card(title, icon, cb, extra=None):
-            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6); card.add_css_class('cc-card'); card.add_css_class('cc-scard')
+            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3); card.add_css_class('cc-card'); card.add_css_class('cc-scard')
             t = Gtk.Label(label=title, xalign=0); t.add_css_class('cc-title'); card.append(t)
-            h = Gtk.Box(spacing=9); h.set_size_request(-1, 25); ov = Gtk.Overlay(hexpand=True, valign=Gtk.Align.CENTER)
+            h = Gtk.Box(spacing=9); h.set_size_request(-1, 27); ov = Gtk.Overlay(hexpand=True, valign=Gtk.Align.CENTER)
             sc = PillSlider(lambda v: cb(v))
             ov.set_child(sc)
             ic = Gtk.Image.new_from_icon_name(icon); ic.set_pixel_size(12); ic.set_halign(Gtk.Align.START); ic.set_valign(Gtk.Align.CENTER)
