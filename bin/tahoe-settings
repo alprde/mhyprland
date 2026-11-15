@@ -887,7 +887,7 @@ def pane_keyboard():
     g.add(r_spin('Tuş tekrarlama hızı', 5, 60, 1, i['repeat_rate'], lambda v: (i.__setitem__('repeat_rate', int(v)), schedule_apply())))
     g.add(r_spin('Tekrarlamaya kadar gecikme (ms)', 150, 1500, 50, i['repeat_delay'], lambda v: (i.__setitem__('repeat_delay', int(v)), schedule_apply())))
     g2 = grp('Klavye Kısayolları')
-    for k, d in [('⌘ Enter', 'Terminal'), ('⌘ Space / ⌘ D', 'Spotlight'), ('⌘ Q', 'Pencereyi kapat'), ('⌘ Tab', 'Pencere değiştirici'), ('⌘ Ctrl Q', 'Ekranı kilitle'),
+    for k, d in [('⌘ Enter', 'Terminal'), ('⌘ B', 'Firefox'), ('⌘ C', 'VS Code'), ('⌘ Space / ⌘ D', 'Spotlight'), ('⌘ Q', 'Pencereyi kapat'), ('⌘ Tab', 'Pencere değiştirici'), ('⌘ Ctrl Q', 'Ekranı kilitle'),
                  ('⌘ Shift 3', 'Tüm ekranın görüntüsü'), ('⌘ Shift 4', 'Seçili alanın görüntüsü'), ('⌘ 1…0', 'Masaüstü (çalışma alanı) değiştir'),
                  ('⌘ Shift 1…0', 'Pencereyi masaüstüne taşı'), ('⌘ F', 'Tam ekran'), ('⌘ V', 'Yüzen pencere'), ('⌘ ,', 'Sistem Ayarları'), ('⌘ Shift E', 'Oturumu kapat')]:
         g2.add(r_info(k, d))

@@ -52,6 +52,8 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 | Keys | Action |
 |---|---|
 | `⌘ Enter` | Terminal |
+| `⌘ B` | Firefox |
+| `⌘ C` | VS Code |
 | `⌘ Space` / `⌘ D` | Spotlight |
 | `⌘ Tab` | Window switcher |
 | `⌘ ,` | System Settings |

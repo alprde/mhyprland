@@ -55,6 +55,8 @@ hl.config({
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
 hl.bind(mod .. " + Return", hl.dsp.exec_cmd(terminal))
+hl.bind(mod .. " + B",      hl.dsp.exec_cmd("firefox"))                                  -- tarayıcı
+hl.bind(mod .. " + C",      hl.dsp.exec_cmd("code --ozone-platform-hint=auto"))          -- VS Code
 hl.bind(mod .. " + D",      hl.dsp.exec_cmd(menu))
 hl.bind(mod .. " + space",  hl.dsp.exec_cmd("rofi -show drun"))
 hl.bind(mod .. " + Tab",    hl.dsp.exec_cmd("rofi -show window"))
