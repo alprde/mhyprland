@@ -1,6 +1,7 @@
 configuration {
     me-select-entry: "MouseSecondary";
     me-accept-entry: "MousePrimary";
+    hover-select: true;
     modes: [drun, run];
     show-icons: true;
     display-drun: "󰍉";

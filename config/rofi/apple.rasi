@@ -2,6 +2,7 @@
 configuration {
     me-select-entry: "MouseSecondary";
     me-accept-entry: "MousePrimary";
+    hover-select: true;
     font: "Inter 10.5";
 }
 window { location: north west; anchor: north west; x-offset: 6px; y-offset: 2px; width: 270px; background-color: @bg; border: 1px; border-color: #ffffff22; border-radius: 10px; }
