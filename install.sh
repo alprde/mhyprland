@@ -12,7 +12,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$HOME/.config-backup-tahoe-$STAMP"
 STATE="$HOME/.local/share/tahoe"
 
-NO_PKG=0; DRY=0; YES=0; UNINSTALL=0; LOGIN_WP=0
+NO_PKG=0; DRY=0; YES=0; UNINSTALL=0; LOGIN_WP=0; LOGIN_THEME=0
 for a in "$@"; do
   case "$a" in
     --no-packages) NO_PKG=1 ;;
@@ -20,6 +20,7 @@ for a in "$@"; do
     -y|--yes)      YES=1 ;;
     --uninstall)   UNINSTALL=1 ;;
     --login-wallpapers) LOGIN_WP=1 ;;
+    --login-theme) LOGIN_THEME=1 ;;
     -h|--help)
       cat <<EOF
 Tahoe Hyprland installer
@@ -29,6 +30,8 @@ Tahoe Hyprland installer
   --yes           do not ask for confirmation                 / onay sorma
   --login-wallpapers  also install the photos system-wide (sudo) so they can be chosen as the login-screen wallpaper
                   / fotoğrafları sisteme de kur (sudo): giriş ekranı duvar kağıdı olarak seçilebilsin
+  --login-theme   switch the login manager to greetd + the Tahoe login screen (sudo; takes effect next boot;
+                  undo: sudo tahoe-login-restore) / giriş ekranını Tahoe yap (sudo, bir sonraki açılışta; geri alma: sudo tahoe-login-restore)
   --uninstall     remove Tahoe and restore the last backup    / kaldır, yedeği geri yükle
 EOF
       exit 0 ;;
@@ -159,6 +162,10 @@ fi
 if [ "$LOGIN_WP" = 1 ]; then
   say "Installing login-screen wallpapers (sudo)…" "Giriş ekranı duvar kağıtları kuruluyor (sudo)…"
   run sudo bash "$SRC/tools/install-login-wallpapers.sh" || warn "Could not install system-wide wallpapers." "Sistem geneli duvar kağıtları kurulamadı."
+fi
+if [ "$LOGIN_THEME" = 1 ]; then
+  say "Installing the Tahoe login screen (sudo)…" "Tahoe giriş ekranı kuruluyor (sudo)…"
+  run sudo bash "$SRC/tools/install-login-theme.sh" --user "$USER" || warn "Login screen was not installed." "Giriş ekranı kurulamadı."
 fi
 echo
 say "${B}Done!${N}" "${B}Tamamlandı!${N}"

@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""Tahoe giriş ekranı — greetd için küçük GTK4 arayüzü (macOS kilit/giriş ekranı düzeni).
+
+greetd protokolü: UNIX soketi ($GREETD_SOCK), her mesaj = 4 bayt (yerel sıra) uzunluk + JSON.
+Çalıştırma (greetd içinde):  cage -s -- tahoe-greeter          Deneme: tahoe-greeter --demo   (parola: pass)
+Ayar: /etc/greetd/tahoe-greeter.conf  ([greeter] user=, session=, background=, lang=)
+"""
+import configparser, datetime, json, os, shlex, shutil, socket, struct, sys, threading
+import gi
+gi.require_version('Gtk', '4.0'); gi.require_version('Gdk', '4.0')
+from gi.repository import Gtk, Gdk, GLib
+
+DEMO = '--demo' in sys.argv
+CONF = '/etc/greetd/tahoe-greeter.conf'
+if '--config' in sys.argv: CONF = sys.argv[sys.argv.index('--config') + 1]
+cfg = configparser.ConfigParser(); cfg.read(CONF)
+G = cfg['greeter'] if cfg.has_section('greeter') else {}
+USER = G.get('user', os.environ.get('USER', ''))
+SESSION = G.get('session', 'hyprland.desktop')
+BG = G.get('background', '/usr/share/tahoe/login-background.jpg')
+LANG = G.get('lang', (os.environ.get('LANG', 'en')[:2]))
+TR = LANG == 'tr'
+DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'] if TR else ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'] if TR else ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+T_HINT = 'Parolayı girin' if TR else 'Enter Password'
+T_WRONG = 'Parola yanlış, tekrar deneyin' if TR else 'Incorrect password, try again'
+T_WAIT = 'Giriş yapılıyor…' if TR else 'Signing in…'
+
+CSS = b"""
+window { background: #0b1b2b; }
+.clock { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 150px; color: rgba(190,225,255,0.82); text-shadow: 0 2px 30px rgba(0,40,90,0.25); }
+.date  { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 26px; color: rgba(190,225,255,0.92); }
+.avatar { min-width: 68px; min-height: 68px; border-radius: 34px; background: #6fd08c; color: #fff; font-size: 30px; font-weight: 600; border: 2px solid rgba(255,255,255,0.35); }
+.uname { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 17px; color: #fff; text-shadow: 0 1px 10px rgba(0,0,0,0.55); }
+.hint  { font-family: 'Inter', sans-serif; font-size: 13px; color: rgba(255,255,255,0.92); text-shadow: 0 1px 8px rgba(0,0,0,0.55); }
+.hint.err { color: #ffd0cc; }
+.status { color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,0.45); font-family: 'Inter', sans-serif; font-weight: 600; font-size: 13px; }
+.sess { background: none; background-image: none; border: none; box-shadow: none; color: #fff; padding: 0; min-height: 0; min-width: 0; font-weight: 600; font-size: 13px; text-shadow: 0 1px 8px rgba(0,0,0,0.45); }
+.sess:hover { background: none; opacity: 0.8; }
+popover.sesspop contents { background: rgba(28,32,44,0.94); border-radius: 14px; padding: 6px; color: #fff; }
+popover.sesspop button { background: none; background-image: none; border: none; box-shadow: none; color: #fff; border-radius: 9px; padding: 6px 14px; min-height: 0; }
+popover.sesspop button:hover { background: rgba(255,255,255,0.16); }
+.status image { -gtk-icon-size: 17px; -gtk-icon-style: symbolic; }
+entry.pw { min-width: 230px; min-height: 34px; border-radius: 17px; padding: 0 16px; color: #fff; caret-color: #fff;
+           background-color: rgba(20,40,70,0.38); background-image: none; border: 1px solid rgba(255,255,255,0.35); box-shadow: none; outline: none; }
+entry.pw text { color: #fff; }
+entry.pw placeholder { color: #fff; opacity: 1; font-size: 13px; }
+"""
+
+
+# ---------------- greetd protokolü ----------------
+def _readn(s, n):
+    b = b''
+    while len(b) < n:
+        c = s.recv(n - len(b))
+        if not c: raise ConnectionError('greetd bağlantısı koptu')
+        b += c
+    return b
+
+
+def _send(s, msg):
+    b = json.dumps(msg).encode()
+    s.sendall(struct.pack('=I', len(b)) + b)
+
+
+def _recv(s):
+    n = struct.unpack('=I', _readn(s, 4))[0]
+    return json.loads(_readn(s, n))
+
+
+def session_cmd(desktop_id):
+    """Oturumun Exec satırı (/usr/share/wayland-sessions)."""
+    for d in ('/usr/share/wayland-sessions', '/usr/share/xsessions'):
+        p = os.path.join(d, desktop_id)
+        if os.path.exists(p):
+            for line in open(p, encoding='utf-8', errors='ignore'):
+                if line.startswith('Exec='): return shlex.split(line[5:].strip())
+    return None
+
+
+def list_sessions():
+    """[(desktop_id, ad)] — wayland oturumları (Hyprland, Plasma…)."""
+    import glob
+    out = []
+    for p in sorted(glob.glob('/usr/share/wayland-sessions/*.desktop')):
+        name = ''
+        for line in open(p, encoding='utf-8', errors='ignore'):
+            if line.startswith('Name=') and not name: name = line[5:].strip()
+        ex = next((l[5:].strip() for l in open(p, encoding='utf-8', errors='ignore') if l.startswith('Exec=')), '')
+        if ex.startswith('uwsm') and not shutil.which('uwsm'): continue  # uwsm kurulu değilse bu oturum açılamaz
+        out.append((os.path.basename(p), name or os.path.basename(p)))
+    return out
+
+
+LAST = '/var/cache/tahoe-greeter/last-session'
+
+
+def greetd_login(user, password, session=None):
+    """(ok, hata_metni). Başarılıysa greetd oturumu başlatır; arayüz sonra kapanmalı."""
+    if DEMO:
+        import time; time.sleep(0.6)
+        return (password == 'pass', 'demo')
+    session = session or SESSION
+    cmd = session_cmd(session)
+    if not cmd: return (False, f'oturum bulunamadı: {session}')
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        s.connect(os.environ['GREETD_SOCK'])
+        _send(s, {'type': 'create_session', 'username': user})
+        answered = False
+        while True:
+            r = _recv(s)
+            t = r.get('type')
+            if t == 'auth_message':
+                kind = r.get('auth_message_type')
+                if kind in ('secret', 'visible') and not answered:
+                    _send(s, {'type': 'post_auth_message_response', 'response': password}); answered = True
+                elif kind in ('secret', 'visible'):
+                    _send(s, {'type': 'cancel_session'}); _recv(s); return (False, 'ek doğrulama istendi')
+                else:
+                    _send(s, {'type': 'post_auth_message_response', 'response': None})
+            elif t == 'success':
+                break
+            else:  # error
+                _send(s, {'type': 'cancel_session'});
+                try: _recv(s)
+                except Exception: pass
+                return (False, r.get('description', 'hata'))
+        _send(s, {'type': 'start_session', 'cmd': cmd, 'env': ['XDG_SESSION_TYPE=wayland']})
+        r = _recv(s)
+        return (r.get('type') == 'success', r.get('description', ''))
+    except Exception as e:
+        return (False, str(e))
+    finally:
+        s.close()
+
+
+# ---------------- durum simgeleri (sysfs) ----------------
+def _read(p):
+    try: return open(p).read().strip()
+    except Exception: return ''
+
+
+def battery_icon():
+    import glob
+    for b in sorted(glob.glob('/sys/class/power_supply/BAT*')):
+        cap = _read(b + '/capacity')
+        if not cap.isdigit(): continue
+        lv = min(100, int(cap) // 10 * 10); st = _read(b + '/status')
+        if st == 'Full' or (st == 'Charging' and lv == 100): return 'battery-level-100-charged-symbolic'
+        return f'battery-level-{lv}-charging-symbolic' if st == 'Charging' else f'battery-level-{lv}-symbolic'
+    return DEMO and 'battery-level-80-charging-symbolic' or None
+
+
+def net_icon():
+    import glob
+    wired = False
+    for n in sorted(glob.glob('/sys/class/net/*')):
+        name = os.path.basename(n)
+        if name == 'lo' or name.startswith(('veth', 'docker', 'br-', 'virbr', 'tun', 'tap', 'vnet')): continue  # sanal arayüzler
+        if _read(n + '/operstate') != 'up': continue
+        if os.path.isdir(n + '/wireless'): return 'network-wireless-signal-excellent-symbolic'
+        wired = True
+    return 'network-wired-symbolic' if wired else 'network-wireless-offline-symbolic'
+
+
+# ---------------- arayüz ----------------
+class Win(Gtk.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, decorated=False)
+        if not DEMO: self.fullscreen()
+        else: self.set_default_size(1600, 900)
+        ov = Gtk.Overlay(); self.set_child(ov)
+        pic = Gtk.Picture(content_fit=Gtk.ContentFit.COVER)
+        if os.path.exists(BG): pic.set_filename(BG)
+        ov.set_child(pic)
+
+        top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, halign=Gtk.Align.CENTER, valign=Gtk.Align.START, margin_top=90)
+        self.date = Gtk.Label(css_classes=['date']); self.clock = Gtk.Label(css_classes=['clock'])
+        top.append(self.date); top.append(self.clock); ov.add_overlay(top)
+
+        bot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, halign=Gtk.Align.CENTER, valign=Gtk.Align.END, margin_bottom=64, spacing=8)
+        av = Gtk.Label(label=(USER[:1] or '?').upper(), css_classes=['avatar'], halign=Gtk.Align.CENTER)
+        name = Gtk.Label(label=USER, css_classes=['uname'])
+        self.hint = Gtk.Label(label=T_HINT, css_classes=['hint'])
+        self.entry = Gtk.Entry(visibility=False, css_classes=['pw'], placeholder_text=T_HINT, halign=Gtk.Align.CENTER, input_purpose=Gtk.InputPurpose.PASSWORD)
+        self.entry.set_alignment(0.5)
+        self.entry.connect('activate', self.on_enter)
+        for w in (av, name, self.entry): bot.append(w)
+        ov.add_overlay(bot)
+        st = Gtk.Box(spacing=14, halign=Gtk.Align.END, valign=Gtk.Align.START, margin_top=12, margin_end=22, css_classes=['status'])
+        self.kb = Gtk.Label(label=G.get('layout', 'TR' if TR else 'ABC')); self.bat = Gtk.Image(); self.net = Gtk.Image()
+        self.sessions = list_sessions()
+        self.session = SESSION
+        try:
+            last = _read(LAST)
+            if last and any(i == last for i, _ in self.sessions): self.session = last
+        except Exception: pass
+        if not any(i == self.session for i, _ in self.sessions) and self.sessions: self.session = self.sessions[0][0]
+        self.sess_btn = Gtk.MenuButton(css_classes=['sess'], always_show_arrow=False, has_frame=False)
+        self.pop = Gtk.Popover(css_classes=['sesspop']); box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        for sid, sname in self.sessions:
+            b = Gtk.Button(label=sname, halign=Gtk.Align.FILL); b.get_first_child().set_halign(Gtk.Align.START)
+            b.connect('clicked', lambda _b, i=sid: self.pick(i)); box.append(b)
+        self.pop.set_child(box); self.sess_btn.set_popover(self.pop); self.show_session()
+        st.append(self.sess_btn); st.append(self.kb); st.append(self.bat); st.append(self.net); ov.add_overlay(st)
+        self.status(); GLib.timeout_add_seconds(10, self.status)
+        self.busy = False
+        self.tick(); GLib.timeout_add_seconds(1, self.tick)
+        self.entry.grab_focus()
+
+    def show_session(self):
+        name = next((n for i, n in self.sessions if i == self.session), self.session)
+        self.sess_btn.set_label(name.replace(' (uwsm-managed)', ''))
+
+    def pick(self, sid):
+        self.session = sid; self.show_session(); self.pop.popdown(); self.entry.grab_focus()
+
+    def status(self):
+        bi = battery_icon(); self.bat.set_visible(bool(bi))
+        if bi: self.bat.set_from_icon_name(bi)
+        self.net.set_from_icon_name(net_icon())
+        return True
+
+    def tick(self):
+        n = datetime.datetime.now()
+        self.date.set_label(f'{DAYS[n.weekday()]} {n.day} {MONTHS[n.month - 1]}' if TR else f'{DAYS[n.weekday()][:3]} {MONTHS[n.month - 1]} {n.day}')
+        self.clock.set_label(n.strftime('%H:%M'))
+        return True
+
+    def on_enter(self, entry):
+        if self.busy: return
+        pw = entry.get_text()
+        if not pw: return
+        self.busy = True; entry.set_sensitive(False); entry.set_placeholder_text(T_WAIT)
+        threading.Thread(target=self.work, args=(pw,), daemon=True).start()
+
+    def work(self, pw):
+        ok, err = greetd_login(USER, pw, self.session)
+        if ok and not DEMO:
+            try: os.makedirs(os.path.dirname(LAST), exist_ok=True); open(LAST, 'w').write(self.session)
+            except Exception: pass
+        GLib.idle_add(self.done, ok, err)
+
+    def done(self, ok, err):
+        if ok:
+            self.get_application().quit(); return
+        self.busy = False
+        self.entry.set_sensitive(True); self.entry.set_text(''); self.entry.set_placeholder_text(T_WRONG); self.entry.grab_focus()
+        sys.stderr.write(f'giriş başarısız: {err}\n')
+
+
+def on_activate(app):
+    st = Gtk.Settings.get_default(); st.set_property('gtk-icon-theme-name', 'Adwaita'); st.set_property('gtk-application-prefer-dark-theme', True)
+    prov = Gtk.CssProvider(); prov.load_from_data(CSS)
+    Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    Win(app).present()
+
+
+if __name__ == '__main__':
+    app = Gtk.Application(application_id='org.tahoe.greeter')
+    app.connect('activate', on_activate)
+    app.run([sys.argv[0]])
