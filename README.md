@@ -61,6 +61,9 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 | `⌘ F` / `⌘ V` | Fullscreen / floating |
 | `⌘ M` / `⌘ ⇧ M` | Minimize window / show minimized windows |
 | `⌘ 1…0`, `⌘ ⇧ 1…0` | Switch workspace / move window |
+| `⌘ ⌃ ←` / `⌘ ⌃ →` | Previous / next workspace |
+| `⌘` + mouse wheel | Previous / next workspace |
+| 3-finger swipe left/right | Switch workspace (touchpad) |
 | `⌘ ⇧ 3`, `⌘ ⇧ 4` | Screenshot (screen / region) to clipboard |
 | `⌘ ⌃ Q` | Lock screen |
 | `⌥ ⌘ Esc` | Force Quit |

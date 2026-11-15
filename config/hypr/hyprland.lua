@@ -54,6 +54,12 @@ hl.config({
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
+-- Masaüstleri arasında geçiş (tıklamasız)
+hl.bind(mod .. " + CTRL + left",  hl.dsp.focus({ workspace = "e-1" }))   -- önceki masaüstü
+hl.bind(mod .. " + CTRL + right", hl.dsp.focus({ workspace = "e+1" }))   -- sonraki masaüstü
+hl.bind(mod .. " + mouse_down",   hl.dsp.focus({ workspace = "e+1" }))   -- Super + tekerlek aşağı
+hl.bind(mod .. " + mouse_up",     hl.dsp.focus({ workspace = "e-1" }))   -- Super + tekerlek yukarı
+
 hl.bind(mod .. " + Return", hl.dsp.exec_cmd(terminal))
 hl.bind(mod .. " + B",      hl.dsp.exec_cmd("firefox"))                                  -- tarayıcı
 hl.bind(mod .. " + C",      hl.dsp.exec_cmd("code --ozone-platform-hint=auto"))          -- VS Code
