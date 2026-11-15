@@ -966,25 +966,28 @@ def cc_css():
     dark = S['dark']; acc = S['accent']
     fg = '#f5f5f7' if dark else '#1d1d1f'; ov = '255,255,255' if dark else '0,0,0'
     panel = 'rgb(30,30,36)' if dark else 'rgb(236,236,242)'
-    card = 'rgba(255,255,255,0.09)' if dark else 'rgba(255,255,255,0.75)'
-    cardh = 'rgba(255,255,255,0.15)' if dark else 'rgba(255,255,255,0.95)'
-    track = 'rgba(255,255,255,0.18)' if dark else 'rgba(0,0,0,0.12)'
+    card = 'rgba(255,255,255,0.13)' if dark else 'rgba(255,255,255,0.38)'
+    cardh = 'rgba(255,255,255,0.20)' if dark else 'rgba(255,255,255,0.55)'
+    track = 'rgba(255,255,255,0.20)' if dark else 'rgba(0,0,0,0.11)'
     return f"""
 window.tahoe-cc-win {{ background: transparent; box-shadow: none; }}
 window.tahoe-catcher {{ background: rgba(0,0,0,0.01); box-shadow: none; }}
-.tahoe-cc-box {{ background-color: {panel}; color: {fg}; padding: 14px; border-radius: 22px; border: 1px solid rgba({ov},0.14); box-shadow: 0 14px 40px rgba(0,0,0,0.45); }}
-.cc-card {{ background-color: {card}; border-radius: 16px; padding: 10px; }}
+.tahoe-cc-box {{ background-color: {panel}; color: {fg}; padding: 10px; border-radius: 18px; border: 1px solid rgba({ov},0.14); box-shadow: 0 14px 40px rgba(0,0,0,0.45); }}
+.cc-card {{ background-color: {card}; border-radius: 12px; padding: 10px; }}
+.cc-scard {{ padding: 8px 10px 10px 10px; }}
+button.cc-tilebtn {{ padding: 6px; }}
 button.cc-card {{ background-image: none; border: none; box-shadow: none; color: {fg}; }}
 button.cc-card:hover {{ background-color: {cardh}; }}
 button.cc-card.on {{ background-color: {acc}; color: #fff; }}
-button.cc-row {{ background: transparent; background-image: none; border: none; box-shadow: none; padding: 4px; border-radius: 12px; min-height: 0; color: {fg}; }}
+button.cc-row {{ background: transparent; background-image: none; border: none; box-shadow: none; padding: 4px 0; border-radius: 8px; min-height: 0; color: {fg}; }}
 button.cc-row:hover {{ background-color: rgba({ov},0.08); }}
-.cc-circle {{ border-radius: 999px; background-color: rgba({ov},0.18); background-image: none; border: none; box-shadow: none; min-width: 36px; min-height: 36px; padding: 0; color: {fg}; }}
+.cc-circle {{ border-radius: 999px; background-color: rgba({ov},0.18); background-image: none; border: none; box-shadow: none; min-width: 26px; min-height: 26px; padding: 0; color: {fg}; }}
+.cc-circle.cc-roundbtn {{ min-width: 25px; min-height: 25px; }}
 .cc-circle.on {{ background-color: {acc}; color: #fff; }}
-.cc-title {{ font-weight: 700; font-size: 13px; }}
+.cc-title {{ font-weight: 600; font-size: 12px; }}
 .cc-title-lg {{ font-weight: 700; font-size: 15px; }}
-.cc-sub {{ font-size: 12px; opacity: 0.62; }}
-.cc-tile-t {{ font-size: 12px; font-weight: 500; }}
+.cc-sub {{ font-size: 11px; opacity: 0.62; }}
+.cc-tile-t {{ font-size: 11px; font-weight: 500; }}
 scale.cc-slider {{ min-height: 28px; padding: 0; }}
 scale.cc-slider trough {{ min-height: 28px; border-radius: 14px; background-color: {track}; }}
 scale.cc-slider highlight {{ min-height: 28px; border-radius: 14px; background-color: #ffffff; }}
@@ -1067,7 +1070,7 @@ class SettingsWindow(Adw.ApplicationWindow):
 # ───────────────────────── Denetim Merkezi ─────────────────────────
 class PillSlider(Gtk.DrawingArea):
     """macOS Denetim Merkezi kaydırıcısı: beyaz dolgu, yuvarlak dolgunun İÇİNDE sağ ucuna yaslı (en az 1 yuvarlak görünür)."""
-    D = 28
+    D = 21
 
     def __init__(self, cb):
         super().__init__()
@@ -1120,7 +1123,7 @@ def fetch_state():
 class ControlCenter(Gtk.ApplicationWindow):
     """Bir monitör için önceden kurulmuş (gizli) Denetim Merkezi paneli."""
     def __init__(self, app, daemon, gmon, D):
-        super().__init__(application=app, title='Denetim Merkezi', default_width=390, decorated=False, resizable=False)
+        super().__init__(application=app, title='Denetim Merkezi', default_width=296, decorated=False, resizable=False)
         self.daemon = daemon; self._upd = False
         self.add_css_class('tahoe-cc-win')
         self.set_child(self.build_ui(D))
@@ -1137,12 +1140,13 @@ class ControlCenter(Gtk.ApplicationWindow):
 
     # ── arayüz ──
     def build_ui(self, D):
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        outer.set_size_request(276, -1)
 
         def circle(icon, active):
-            img = Gtk.Image.new_from_icon_name(icon); img.set_pixel_size(18)
+            img = Gtk.Image.new_from_icon_name(icon); img.set_pixel_size(14)
             img.set_halign(Gtk.Align.CENTER); img.set_valign(Gtk.Align.CENTER); img.set_hexpand(True); img.set_vexpand(True)
-            c = Gtk.Box(); c.add_css_class('cc-circle'); c.set_size_request(36, 36); c.set_valign(Gtk.Align.CENTER)
+            c = Gtk.Box(); c.add_css_class('cc-circle'); c.set_size_request(26, 26); c.set_valign(Gtk.Align.CENTER)
             c.set_halign(Gtk.Align.START); c.set_hexpand(False); c.append(img)
             if active: c.add_css_class('on')
             return c
@@ -1152,18 +1156,18 @@ class ControlCenter(Gtk.ApplicationWindow):
             t = Gtk.Label(label=title, xalign=0, wrap=True); t.add_css_class('cc-title'); v.append(t)
             s = None
             if sub is not None:
-                s = Gtk.Label(label=sub, xalign=0, ellipsize=3); s.add_css_class('cc-sub'); v.append(s)
+                s = Gtk.Label(label=sub, xalign=0, ellipsize=3, max_width_chars=8); s.add_css_class('cc-sub'); v.append(s)
             return v, s
 
         def row(icon, title, sub, active):
             b = Gtk.Button(); b.add_css_class('cc-row'); b.set_focusable(False)
-            h = Gtk.Box(spacing=10); c = circle(icon, active); v, s = label_box(title, sub)
+            h = Gtk.Box(spacing=8); c = circle(icon, active); v, s = label_box(title, sub)
             h.append(c); h.append(v); b.set_child(h)
             return b, c, s
 
         # ── bağlantılar ──
-        top = Gtk.Box(spacing=12, homogeneous=True)
-        left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4); left.add_css_class('cc-card')
+        top = Gtk.Box(spacing=10, homogeneous=True)
+        left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0); left.add_css_class('cc-card')
         self.st = {'wifi': False, 'bt': False, 'dnd': False, 'prof': 1}
         wb, self.wc, self.ws = row('network-wireless-symbolic', 'Wi-Fi', '', False)
         bb, self.bc, self.bs = row('bluetooth-active-symbolic', 'Bluetooth', '', False)
@@ -1178,12 +1182,12 @@ class ControlCenter(Gtk.ApplicationWindow):
         for b in (wb, bb, pb): left.append(b)
         top.append(left)
 
-        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         db = Gtk.Button(); db.add_css_class('cc-card'); db.add_css_class('cc-tilebtn'); db.set_focusable(False); db.set_vexpand(True)
         dh = Gtk.Box(spacing=10); self.dc = circle('weather-clear-night-symbolic', False); dv, _s = label_box('Rahatsız\nEtme'); dh.append(self.dc); dh.append(dv); db.set_child(dh)
         db.connect('clicked', lambda *_: self.dnd_toggle())
         right.append(db)
-        small = Gtk.Box(spacing=12, homogeneous=True)
+        small = Gtk.Box(spacing=10, homogeneous=True)
         def tile(icon, title, cb):
             b = Gtk.Button(); b.add_css_class('cc-card'); b.add_css_class('cc-tilebtn'); b.set_focusable(False)
             v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
@@ -1199,20 +1203,20 @@ class ControlCenter(Gtk.ApplicationWindow):
 
         # ── kaydırıcılar ──
         def slider_card(title, icon, cb, extra=None):
-            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8); card.add_css_class('cc-card')
+            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6); card.add_css_class('cc-card'); card.add_css_class('cc-scard')
             t = Gtk.Label(label=title, xalign=0); t.add_css_class('cc-title'); card.append(t)
-            h = Gtk.Box(spacing=10); h.set_size_request(-1, 36); ov = Gtk.Overlay(hexpand=True, valign=Gtk.Align.CENTER)
+            h = Gtk.Box(spacing=9); h.set_size_request(-1, 25); ov = Gtk.Overlay(hexpand=True, valign=Gtk.Align.CENTER)
             sc = PillSlider(lambda v: cb(v))
             ov.set_child(sc)
-            ic = Gtk.Image.new_from_icon_name(icon); ic.set_pixel_size(16); ic.set_halign(Gtk.Align.START); ic.set_valign(Gtk.Align.CENTER)
-            ic.set_margin_start(10); ic.set_can_target(False); ic.add_css_class('cc-slider-icon'); ov.add_overlay(ic)
+            ic = Gtk.Image.new_from_icon_name(icon); ic.set_pixel_size(12); ic.set_halign(Gtk.Align.START); ic.set_valign(Gtk.Align.CENTER)
+            ic.set_margin_start(6); ic.set_can_target(False); ic.add_css_class('cc-slider-icon'); ov.add_overlay(ic)
             h.append(ov)
             if extra is not None: h.append(extra)
             card.append(h); return card, sc
         card, self.br_scale = slider_card('Ekran', 'display-brightness-symbolic', lambda v: bg_run(f'brightnessctl set {max(1, int(v))}%'))
         outer.append(card)
-        outb = Gtk.Button(); outb.add_css_class('cc-circle'); outb.add_css_class('cc-roundbtn'); outb.set_focusable(False); outb.set_size_request(36, 36)
-        outb.set_child(Gtk.Image.new_from_icon_name('audio-speakers-symbolic')); outb.connect('clicked', lambda *_: (self.daemon.hide(), bg_run('tahoe-settings --pane sound')))
+        outb = Gtk.Button(); outb.add_css_class('cc-circle'); outb.add_css_class('cc-roundbtn'); outb.set_focusable(False); outb.set_size_request(25, 25)
+        _oi = Gtk.Image.new_from_icon_name('audio-speakers-symbolic'); _oi.set_pixel_size(13); outb.set_child(_oi); outb.connect('clicked', lambda *_: (self.daemon.hide(), bg_run('tahoe-settings --pane sound')))
         card, self.vol_scale = slider_card('Ses', 'audio-volume-high-symbolic', lambda v: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SINK@ {int(v)}%'), outb)
         outer.append(card)
 
@@ -1223,6 +1227,7 @@ class ControlCenter(Gtk.ApplicationWindow):
         self.stack.set_vhomogeneous(False); self.stack.set_interpolate_size(True); self.stack.set_hexpand(True)
         self.stack.add_named(outer, 'main'); self.stack.add_named(self.build_wifi_view(), 'wifi'); self.stack.add_named(self.build_bt_view(), 'bt')
         root = Gtk.Box(); root.add_css_class('tahoe-cc-box'); root.append(self.stack)
+        self.root = root
         return root
 
     # ───────────── Wi-Fi alt görünümü (macOS: Wi-Fi'ye basınca ağ listesi açılır) ─────────────
@@ -1510,6 +1515,7 @@ class ControlCenter(Gtk.ApplicationWindow):
             if c is None: break
             self.np_box.remove(c)
         title, artist = D['title'], D['artist']
+        self.np_box.set_visible(bool(title))
         if not title: return
         np_ = Gtk.Box(spacing=12); np_.add_css_class('cc-card')
         art = D['art']
@@ -1517,7 +1523,7 @@ class ControlCenter(Gtk.ApplicationWindow):
             pic = Gtk.Picture.new_for_filename(art[7:]); pic.set_content_fit(Gtk.ContentFit.COVER)
         else:
             pic = Gtk.Image.new_from_icon_name('audio-x-generic-symbolic'); pic.set_pixel_size(28)
-        pic.set_size_request(52, 52); pic.add_css_class('cc-art'); np_.append(pic)
+        pic.set_size_request(42, 42); pic.add_css_class('cc-art'); np_.append(pic)
         v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, valign=Gtk.Align.CENTER, hexpand=True)
         tl = Gtk.Label(label=title, xalign=0, ellipsize=3, max_width_chars=18); tl.add_css_class('cc-title'); v.append(tl)
         al = Gtk.Label(label=artist, xalign=0, ellipsize=3, max_width_chars=22); al.add_css_class('cc-sub'); v.append(al)
@@ -1536,13 +1542,16 @@ class CCDaemon:
     """Arka planda hazır bekleyen Denetim Merkezi: çubuktan gelen SIGUSR1 ile anında gösterilir/gizlenir."""
     def __init__(self, app):
         self.app = app; self.panels = {}; self.catchers = {}; self.label = 'control'; self.opened = 0.0
-        self._css = None; self.css_key = None
+        self._css = None; self.css_key = None; self._wall = {}; self._gfiles = {}; self._gseq = 0
+        self._gprov = Gtk.CssProvider()
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), self._gprov, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
         self.refresh_css(force=True)
         D = fetch_state()
         mons = Gdk.Display.get_default().get_monitors()
         for i in range(mons.get_n_items()):
             m = mons.get_item(i); name = m.get_connector()
             self.panels[name] = ControlCenter(app, self, m, D)
+            self.panels[name].idx = i; self.panels[name].gmon = m; self.panels[name].root.add_css_class(f'cc-m{i}')
             if LS_OK: self.catchers[name] = self.make_catcher(m)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, self.on_usr1)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, lambda: (app.quit(), False)[1])
@@ -1573,6 +1582,43 @@ class CCDaemon:
         Gtk.StyleContext.add_provider_for_display(disp, self._css, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK if key[0] else Adw.ColorScheme.FORCE_LIGHT)
 
+    # ── cam efekti: duvar kağıdının bulanık kopyası + ton (Hyprland katman bulanıklığı bu kurulumda çalışmıyor) ──
+    def wall_blur(self, mw, mh):
+        path = f'{HYPR}/wallpaper.png'
+        try: mt = os.path.getmtime(path)
+        except Exception: return None
+        key = (mw, mh, mt, S['dark'])
+        if self._wall.get((mw, mh, 'k')) == key: return self._wall[(mw, mh)]
+        from PIL import Image, ImageFilter, ImageEnhance
+        im = Image.open(path).convert('RGB'); iw, ih = im.size; sc = max(mw / iw, mh / ih)
+        im = im.resize((int(iw * sc) + 1, int(ih * sc) + 1), Image.BILINEAR)
+        ox, oy = (im.width - mw) // 2, (im.height - mh) // 2
+        im = im.crop((ox, oy, ox + mw, oy + mh)).filter(ImageFilter.GaussianBlur(26))
+        im = ImageEnhance.Color(im).enhance(1.7)
+        self._wall[(mw, mh)] = im; self._wall[(mw, mh, 'k')] = key
+        return im
+
+    def update_glass(self, panel, bar_h):
+        try:
+            g = panel.gmon.get_geometry(); mw, mh = g.width, g.height
+            im = self.wall_blur(mw, mh)
+            if im is None: return
+            W, H = 360, 520
+            x1 = mw - 8; y0 = bar_h + 6
+            crop = im.crop((x1 - W, y0, x1, min(mh, y0 + H)))
+            self._gseq += 1
+            rt = os.environ.get('XDG_RUNTIME_DIR', '/tmp')
+            fn = f'{rt}/tahoe-cc-bg-{panel.idx}-{self._gseq}.png'
+            crop.save(fn)
+            old = self._gfiles.get(panel.idx)
+            self._gfiles[panel.idx] = fn
+            if old and os.path.exists(old): os.remove(old)
+            tint = 'rgba(18,18,26,0.40)' if S['dark'] else 'rgba(255,255,255,0.42)'
+            rules = ''.join(f'.tahoe-cc-box.cc-m{i} {{ background-image: linear-gradient({tint}, {tint}), url("file://{f}"); background-position: 0 0, right top; background-repeat: no-repeat, no-repeat; background-size: 100% 100%, auto; }}\n' for i, f in self._gfiles.items())
+            self._gprov.load_from_data(rules.encode())
+        except Exception as e:
+            print('cam arka plan hatası:', e, file=sys.stderr)
+
     def focused(self):
         try:
             mons = json.loads(sh('hyprctl monitors -j', 2))
@@ -1600,6 +1646,7 @@ class CCDaemon:
         if LS_OK:
             for c in self.catchers.values():
                 Gtk4LayerShell.set_margin(c, Gtk4LayerShell.Edge.TOP, bar_h); c.present()
+        self.update_glass(panel, bar_h)
         panel.reset_view(); panel.present(); self.label = label; self.opened = time.time()
         bg(fetch_state, lambda D: panel.apply_state(D) if (D and panel.get_visible()) else None)
 
