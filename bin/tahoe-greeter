@@ -22,8 +22,8 @@ LANG = G.get('lang', (os.environ.get('LANG', 'en')[:2]))
 TR = LANG == 'tr'
 DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'] if TR else ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'] if TR else ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-try: SCALE = float(G.get('scale', '1.4'))
-except Exception: SCALE = 1.4
+try: SCALE = float(G.get('scale', '1.1'))
+except Exception: SCALE = 1.1
 T_HINT = 'Parolayı girin' if TR else 'Enter Password'
 T_WRONG = 'Parola yanlış, tekrar deneyin' if TR else 'Incorrect password, try again'
 T_WAIT = 'Giriş yapılıyor…' if TR else 'Signing in…'

@@ -15,9 +15,9 @@ label {
     monitor =
     text = cmd[update:30000] LC_TIME=tr_TR.UTF-8 date +"%A, %e %B"
     color = rgba(190, 225, 255, 0.92)
-    font_size = 34
+    font_size = 26
     font_family = Inter SemiBold
-    position = 0, -105
+    position = 0, -80
     halign = center
     valign = top
 }
@@ -26,9 +26,9 @@ label {
     monitor =
     text = <span font_weight="700">$TIME</span>
     color = rgba(190, 225, 255, 0.82)
-    font_size = 200
+    font_size = 150
     font_family = Inter
-    position = 0, -150
+    position = 0, -105
     halign = center
     valign = top
 }
@@ -36,11 +36,11 @@ label {
 image {
     monitor =
     path = __HOME__/.cache/tahoe/avatar.png
-    size = 96
+    size = 72
     rounding = -1
     border_size = 2
     border_color = rgba(255, 255, 255, 0.35)
-    position = 0, 235
+    position = 0, 190
     halign = center
     valign = bottom
 }
@@ -49,16 +49,16 @@ label {
     monitor =
     text = $USER
     color = rgba(255, 255, 255, 1.0)
-    font_size = 22
+    font_size = 17
     font_family = Inter SemiBold
-    position = 0, 170
+    position = 0, 140
     halign = center
     valign = bottom
 }
 
 input-field {
     monitor =
-    size = 320, 48
+    size = 260, 38
     outline_thickness = 1
     outer_color = rgba(255, 255, 255, 0.35)
     dots_size = 0.25
@@ -71,7 +71,7 @@ input-field {
     rounding = -1
     check_color = rgba(10, 132, 255, 0.6)
     fail_color = rgba(255, 69, 58, 0.6)
-    position = 0, 80
+    position = 0, 70
     halign = center
     valign = bottom
 }

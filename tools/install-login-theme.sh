@@ -59,7 +59,7 @@ user=$UNAME
 session=$SESSION
 background=/usr/share/tahoe/login-background.jpg
 lang=$LANGC
-scale=${SCALE:-1.4}
+scale=${SCALE:-1.1}
 EOF
 chmod 0644 "$GD/tahoe-greeter.conf"
 getent passwd greeter >/dev/null 2>&1 && chown greeter:greeter "$ROOT/var/cache/tahoe-greeter" 2>/dev/null || true
