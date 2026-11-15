@@ -59,6 +59,7 @@ user=$UNAME
 session=$SESSION
 background=/usr/share/tahoe/login-background.jpg
 lang=$LANGC
+scale=${SCALE:-1.4}
 EOF
 chmod 0644 "$GD/tahoe-greeter.conf"
 getent passwd greeter >/dev/null 2>&1 && chown greeter:greeter "$ROOT/var/cache/tahoe-greeter" 2>/dev/null || true
@@ -70,7 +71,7 @@ cat > "$GD/config.toml" <<'EOF'
 vt = 1
 
 [default_session]
-command = "env GTK_USE_PORTAL=0 GDK_DEBUG=no-portals dbus-run-session cage -s -- /usr/local/bin/tahoe-greeter"
+command = "env GTK_USE_PORTAL=0 GDK_DEBUG=no-portals XCURSOR_SIZE=24 dbus-run-session cage -s -- /usr/local/bin/tahoe-greeter"
 user = "greeter"
 EOF
 
