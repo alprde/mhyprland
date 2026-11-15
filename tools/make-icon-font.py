@@ -58,21 +58,26 @@ def circle(pen, cx, cy, r, ccw=False):
     pill(pen, cx - r, cy - r, cx + r, cy + r, r, ccw=ccw)
 
 
-def glyph(draw):
+def glyph(draw, dy=0):
+    from fontTools.pens.transformPen import TransformPen
     pen = TTGlyphPen(None)
-    draw(Cu2QuPen(pen, 1.0, reverse_direction=False))
+    draw(TransformPen(Cu2QuPen(pen, 1.0, reverse_direction=False), (1, 0, 0, 1, 0, dy)))
     return pen.glyph()
 
 
+CC_DY = -100    # dikey ofset (font birimi): çubuktaki diğer simgelerle aynı hizaya getirmek için
+BAT_DY = -110
+
+
 def cc_icon(pen):
-    """Üstte: çizgili hap + sol dolu daire; altta: dolu hap + sağda delik daire (macOS Denetim Merkezi)."""
-    x0, x1 = 90, 910
-    t = 62
-    pill(pen, x0, 440, x1, 700)                       # üst hap (dış)
-    pill(pen, x0 + t, 440 + t, x1 - t, 700 - t, ccw=True)   # iç boşluk
-    circle(pen, x0 + 130, 570, 44)                    # sol dolu daire (kenarlardan eşit boşluk)
-    pill(pen, x0, 90, x1, 350)                        # alt hap (dolu)
-    circle(pen, x1 - 130, 220, 78, ccw=True)          # sağda delik
+    """macOS Denetim Merkezi: üstte çizgili hap + sol dolu daire; altta dolu hap + sağda delik daire. Kompakt, dolgun (≈ kare)."""
+    x0, x1 = 130, 870
+    t = 70
+    pill(pen, x0, 420, x1, 720)                              # üst hap (dış)
+    pill(pen, x0 + t, 420 + t, x1 - t, 720 - t, ccw=True)    # iç boşluk
+    circle(pen, x0 + 150, 570, 56)                           # sol dolu daire (kapağa eşmerkezli)
+    pill(pen, x0, 60, x1, 360)                               # alt hap (dolu)
+    circle(pen, x1 - 150, 210, 82, ccw=True)                 # sağda delik (kapağa eşmerkezli)
 
 
 def battery(level):
@@ -92,9 +97,9 @@ def battery(level):
 def main(out):
     names = ['.notdef', 'cc', 'bat0', 'bat1', 'bat2', 'bat3', 'bat4']
     cmap = {0xE900: 'cc', 0xE901: 'bat0', 0xE902: 'bat1', 0xE903: 'bat2', 0xE904: 'bat3', 0xE905: 'bat4'}
-    glyphs = {'.notdef': TTGlyphPen(None).glyph(), 'cc': glyph(cc_icon)}
+    glyphs = {'.notdef': TTGlyphPen(None).glyph(), 'cc': glyph(cc_icon, CC_DY)}
     for i, lv in enumerate((0.0, 0.25, 0.5, 0.75, 1.0)):
-        glyphs[f'bat{i}'] = glyph(battery(lv))
+        glyphs[f'bat{i}'] = glyph(battery(lv), BAT_DY)
     fb = FontBuilder(1000, isTTF=True)
     fb.setupGlyphOrder(names); fb.setupCharacterMap(cmap); fb.setupGlyf(glyphs)
     fb.setupHorizontalMetrics({n: (1000, 0) for n in names})
