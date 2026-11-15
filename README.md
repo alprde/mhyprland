@@ -64,6 +64,7 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 | `⌘ ⌃ ←` / `⌘ ⌃ →` | Previous / next workspace |
 | `⌘` + mouse wheel | Previous / next workspace |
 | 3-finger swipe left/right | Switch workspace (touchpad) |
+| Mouse wheel tilt left/right | Previous / next workspace (opt-in per mouse, see `hyprland.lua`) |
 | `⌘ ⇧ 3`, `⌘ ⇧ 4` | Screenshot (screen / region) to clipboard |
 | `⌘ ⌃ Q` | Lock screen |
 | `⌥ ⌘ Esc` | Force Quit |
