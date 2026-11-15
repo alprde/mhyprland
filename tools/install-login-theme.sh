@@ -45,6 +45,10 @@ fi
 [ -n "$BG" ] || BG="$(ls "$HERE"/share/wallpapers/01-*.jpg | head -1)"
 [ -f "$BG" ] || { echo "HATA: arka plan yok: $BG"; exit 1; }
 LANGC="${LANG:-en}"; LANGC="${LANGC:0:2}"
+# imleç teması: kullanıcının GTK ayarından (yoksa Adwaita)
+UHOME="$(getent passwd "$UNAME" | cut -d: -f6)"
+CURSOR="$(sed -n 's/^gtk-cursor-theme-name=//p' "$UHOME/.config/gtk-4.0/settings.ini" 2>/dev/null | head -1)"
+[ -n "$CURSOR" ] && [ -d "$ROOT/usr/share/icons/$CURSOR" ] || CURSOR="Adwaita"
 
 if [ "$NO_PACMAN" != 1 ]; then
   for p in greetd cage; do pacman -Q "$p" >/dev/null 2>&1 || pacman -S --needed --noconfirm "$p"; done
@@ -66,12 +70,12 @@ getent passwd greeter >/dev/null 2>&1 && chown greeter:greeter "$ROOT/var/cache/
 
 # greetd yapılandırması (eskisini yedekle)
 [ -f "$GD/config.toml" ] && [ ! -f "$GD/config.toml.tahoe-bak" ] && cp "$GD/config.toml" "$GD/config.toml.tahoe-bak"
-cat > "$GD/config.toml" <<'EOF'
+cat > "$GD/config.toml" <<EOF
 [terminal]
 vt = 1
 
 [default_session]
-command = "env GTK_USE_PORTAL=0 GDK_DEBUG=no-portals XCURSOR_SIZE=24 dbus-run-session cage -s -- /usr/local/bin/tahoe-greeter"
+command = "env GTK_USE_PORTAL=0 GDK_DEBUG=no-portals XCURSOR_THEME=$CURSOR XCURSOR_SIZE=20 dbus-run-session cage -s -- /usr/local/bin/tahoe-greeter"
 user = "greeter"
 EOF
 
