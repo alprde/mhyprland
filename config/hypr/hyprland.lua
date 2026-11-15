@@ -3,6 +3,8 @@
 -- Hibrit (iGPU+dGPU) dizüstülerde gerekirse: hl.env("AQ_DRM_DEVICES", "/dev/dri/card1:/dev/dri/card0")
 local home = os.getenv("HOME")
 hl.env("PATH", home .. "/.local/bin:" .. (os.getenv("PATH") or "/usr/bin"))
+-- greetd gibi giriş yöneticileri ~/.local/bin'i PATH'e koymaz ve hl.env başlangıç komutlarına yansımıyor → komutlara PATH'i açıkça veriyoruz
+local P = "env PATH=" .. home .. "/.local/bin:" .. (os.getenv("PATH") or "/usr/bin") .. " "
 hl.env("XCURSOR_SIZE", "24")
 hl.env("XCURSOR_THEME", "capitaine-cursors")
 hl.env("GTK_THEME", "Tahoe")
@@ -15,14 +17,14 @@ local mod      = "SUPER"
 
 hl.on("hyprland.start", function()
   hl.exec_cmd("hyprpaper")
-  hl.exec_cmd("waybar")
+  hl.exec_cmd(P .. "waybar")
   hl.exec_cmd("hypridle -c " .. home .. "/.config/hypr/hypridle.conf")
   hl.exec_cmd("swaync")
-  hl.exec_cmd("tahoe-tray-assist")
-  hl.exec_cmd("tahoe-settings --control-center-daemon")
-  hl.exec_cmd("tahoe-dock")
+  hl.exec_cmd(P .. "tahoe-tray-assist")
+  hl.exec_cmd(P .. "tahoe-settings --control-center-daemon")
+  hl.exec_cmd(P .. "tahoe-dock")
   hl.exec_cmd("systemctl --user start hyprpolkitagent")
-  hl.exec_cmd("tahoe-firstrun")
+  hl.exec_cmd(P .. "tahoe-firstrun")
 end)
 
 hl.config({
@@ -54,8 +56,8 @@ hl.config({
 })
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
-hl.gesture({ fingers = 3, direction = "up", action = function() hl.exec_cmd("tahoe-cc mission") end })   -- 3 parmak yukarı: Mission Control
-hl.bind(mod .. " + CTRL + up", hl.dsp.exec_cmd("tahoe-cc mission"))      -- Super+Ctrl+Yukarı: Mission Control
+hl.gesture({ fingers = 3, direction = "up", action = function() hl.exec_cmd(P .. "tahoe-cc mission") end })   -- 3 parmak yukarı: Mission Control
+hl.bind(mod .. " + CTRL + up", hl.dsp.exec_cmd(P .. "tahoe-cc mission"))      -- Super+Ctrl+Yukarı: Mission Control
 
 -- Masaüstleri arasında geçiş (tıklamasız)
 hl.bind(mod .. " + CTRL + left",  hl.dsp.focus({ workspace = "-1" }))   -- önceki masaüstü (1'de durur)
@@ -75,11 +77,11 @@ hl.bind(mod .. " + B",      hl.dsp.exec_cmd("firefox"))                         
 hl.bind(mod .. " + C",      hl.dsp.exec_cmd("code --ozone-platform-hint=auto"))          -- VS Code
 hl.bind(mod .. " + D",      hl.dsp.exec_cmd(menu))
 hl.bind(mod .. " + space",  hl.dsp.exec_cmd("rofi -show drun"))
-hl.bind(mod .. " + Tab",    hl.dsp.exec_cmd("tahoe-cc mission"))                    -- Win+Tab: Mission Control
+hl.bind(mod .. " + Tab",    hl.dsp.exec_cmd(P .. "tahoe-cc mission"))                    -- Win+Tab: Mission Control
 hl.bind(mod .. " + ALT + Tab", hl.dsp.exec_cmd("rofi -show window"))                  -- pencere değiştirici (liste)
-hl.bind(mod .. " + comma",  hl.dsp.exec_cmd("tahoe-settings"))
+hl.bind(mod .. " + comma",  hl.dsp.exec_cmd(P .. "tahoe-settings"))
 hl.bind(mod .. " + CTRL + Q", hl.dsp.exec_cmd("hyprlock"))
-hl.bind(mod .. " + ALT + Escape", hl.dsp.exec_cmd("tahoe-forcequit"))
+hl.bind(mod .. " + ALT + Escape", hl.dsp.exec_cmd(P .. "tahoe-forcequit"))
 hl.bind(mod .. " + SHIFT + 3", hl.dsp.exec_cmd("hyprshot -m output --clipboard-only"))
 hl.bind(mod .. " + SHIFT + 4", hl.dsp.exec_cmd("hyprshot -m region --clipboard-only"))
 hl.bind(mod .. " + F",      hl.dsp.window.fullscreen())
