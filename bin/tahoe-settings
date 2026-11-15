@@ -1082,7 +1082,7 @@ class PillSlider(Gtk.DrawingArea):
     def get_value(self): return self.v
 
     def _set_from_x(self, x):
-        w = max(1, self.get_width()); d = self.D
+        w = max(1, self.get_width()); d = max(1, self.get_height())
         v = max(0.0, min(100.0, (x - d / 2) / max(1, (w - d)) * 100))
         changed = int(v) != int(self.v); self.v = v; self.queue_draw()
         if changed: self.cb(v)
@@ -1095,11 +1095,12 @@ class PillSlider(Gtk.DrawingArea):
 
     def draw(self, area, cr, w, h):
         import math
-        d = self.D; dark = S['dark']
+        d = h; dark = S['dark']; r = d / 2          # yuvarlağın çapı = çubuğun GERÇEK yüksekliği
         self._pill(cr, 0, 0, w, h); cr.set_source_rgba(1, 1, 1, 0.18) if dark else cr.set_source_rgba(0, 0, 0, 0.12); cr.fill()
-        fe = d + self.v / 100 * (w - d)                       # dolgunun sağ ucu
+        fe = d + self.v / 100 * (w - d)                       # dolgunun sağ ucu = yuvarlağın sağ kenarı
+        for k in range(6):                                    # yuvarlağın yumuşak gölgesi (çizgi değil)
+            cr.arc(fe - r + 0.6, r + 1.2, r + k * 0.7, 0, 2 * math.pi); cr.set_source_rgba(0, 0, 0, 0.055 * (6 - k) / 6 + 0.01); cr.fill()
         self._pill(cr, 0, 0, fe, h); cr.set_source_rgb(1, 1, 1); cr.fill()
-        cr.arc(fe - d / 2, h / 2, d / 2 - 0.5, 0, 2 * math.pi); cr.set_source_rgba(0, 0, 0, 0.14); cr.set_line_width(1); cr.stroke()   # yuvarlak (ince halka)
 
 
 def fetch_state():
@@ -1166,9 +1167,9 @@ class ControlCenter(Gtk.ApplicationWindow):
         self.st = {'wifi': False, 'bt': False, 'dnd': False, 'prof': 1}
         wb, self.wc, self.ws = row('network-wireless-symbolic', 'Wi-Fi', '', False)
         bb, self.bc, self.bs = row('bluetooth-active-symbolic', 'Bluetooth', '', False)
-        pb, self.pc, self.ps = row('power-profile-balanced-symbolic', 'Güç Modu', '', False)
+        pb, self.pc, self.ps = row('battery-level-60-symbolic', 'Güç Modu', '', False)
         self.profs = ['power-saver', 'balanced', 'performance']; self.pnames = ['Tasarruf', 'Dengeli', 'Performans']
-        self.picons = ['power-profile-power-saver-symbolic', 'power-profile-balanced-symbolic', 'power-profile-performance-symbolic']
+        self.picons = ['battery-level-30-symbolic', 'battery-level-60-symbolic', 'battery-level-100-symbolic']
         wb.connect('clicked', lambda *_: self.open_wifi())
         _ch = Gtk.Image.new_from_icon_name('go-next-symbolic'); _ch.set_pixel_size(14); _ch.set_opacity(0.6); _ch.set_valign(Gtk.Align.CENTER); wb.get_child().append(_ch)
         bb.connect('clicked', lambda *_: self.open_bt())
@@ -1200,7 +1201,7 @@ class ControlCenter(Gtk.ApplicationWindow):
         def slider_card(title, icon, cb, extra=None):
             card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8); card.add_css_class('cc-card')
             t = Gtk.Label(label=title, xalign=0); t.add_css_class('cc-title'); card.append(t)
-            h = Gtk.Box(spacing=10); ov = Gtk.Overlay(hexpand=True)
+            h = Gtk.Box(spacing=10); h.set_size_request(-1, 36); ov = Gtk.Overlay(hexpand=True, valign=Gtk.Align.CENTER)
             sc = PillSlider(lambda v: cb(v))
             ov.set_child(sc)
             ic = Gtk.Image.new_from_icon_name(icon); ic.set_pixel_size(16); ic.set_halign(Gtk.Align.START); ic.set_valign(Gtk.Align.CENTER)
