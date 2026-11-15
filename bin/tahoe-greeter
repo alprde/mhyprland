@@ -119,7 +119,9 @@ def greetd_login(user, password, session=None):
     session = session or SESSION
     cmd = session_cmd(session)
     if not cmd: return (False, f'oturum bulunamadı: {session}')
-    if shutil.which('systemd-cat'): cmd = ['systemd-cat', '-t', 'tahoe-session'] + cmd   # oturum çıktısı VT'ye değil günlüğe (ekranda yazı akmasın)
+    # oturum çıktısı VT'ye değil günlüğe gitsin; başlarken terminali temizle + imleci gizle (kısa süreli yazı/imleç görünmesin)
+    if shutil.which('systemd-cat'):
+        cmd = ['sh', '-c', 'printf "\\033[?25l\\033[2J\\033[H" 2>/dev/null >/dev/tty; exec systemd-cat -t tahoe-session "$@"', 'tahoe'] + cmd
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         s.connect(os.environ['GREETD_SOCK'])
