@@ -11,6 +11,9 @@ if any(a.startswith('--control-center') for a in _sys.argv) and 'libgtk4-layer-s
         _os.environ['LD_PRELOAD'] = _libs[0] + ((':' + _os.environ['LD_PRELOAD']) if _os.environ.get('LD_PRELOAD') else '')
         _os.execv(_sys.executable, [_sys.executable] + _sys.argv)
 import gi, json, os, re, subprocess, threading, sys, shutil, glob, time, signal
+# Hibrit dizüstülerde GTK4'ün varsayılan çizicisi NVIDIA kartını da başlatıp uyandırıyor (uykudaki kartta pencere ~2.3 sn geç açılıyor, pil de harcanıyor).
+# 'ngl' = ekran için kullanılan (Intel) GPU üzerinde OpenGL → dGPU uykuda kalır. Gtk başlatılmadan önce ayarlanmalı.
+os.environ.setdefault('GSK_RENDERER', 'ngl')
 gi.require_version('Gtk', '4.0'); gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk, GObject
 try:
