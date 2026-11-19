@@ -1607,6 +1607,7 @@ button.mc-space:hover { background: rgba(255,255,255,0.14); }
 button.mc-space.sel { border-color: #0a84ff; background: rgba(255,255,255,0.12); }
 button.mc-add { background: rgba(255,255,255,0.08); border: 2px dashed rgba(255,255,255,0.35); border-radius: 12px; min-width: 110px; box-shadow: none; background-image: none; font-size: 28px; color: rgba(255,255,255,0.8); }
 button.mc-add:hover { background: rgba(255,255,255,0.18); }
+button.mc-space.drop, button.mc-add.drop { border-color: #0a84ff; background: rgba(10,132,255,0.28); }
 button.mc-card { background: rgba(255,255,255,0.07); border: 2px solid transparent; border-radius: 14px; padding: 10px; box-shadow: none; background-image: none; }
 button.mc-card:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.55); }
 .mc-shot { border-radius: 8px; background: rgba(0,0,0,0.25); }
@@ -1614,7 +1615,7 @@ button.mc-card:hover { background: rgba(255,255,255,0.16); border-color: rgba(25
 """
 
 
-def mc_collect(mon_name):
+def mc_collect(mon_name, grab=True):
     """Mission Control için sistem durumu + (varsa) ekranın gerçek görüntüsü."""
     mons = hypr_json('monitors')
     if not mons: return None
@@ -1627,6 +1628,7 @@ def mc_collect(mon_name):
     clients = [c for c in cls if c.get('mapped') and c['workspace']['id'] > 0]
     shot = None
     try:
+        if not grab: raise RuntimeError('ekran görüntüsü istenmedi')
         r = subprocess.run(['grim', '-o', mon['name'], '-t', 'jpeg', '-q', '85', '-'], capture_output=True, timeout=3)
         import io
         from PIL import Image
@@ -1731,10 +1733,28 @@ class MissionControl(Gtk.ApplicationWindow):
             lb = Gtk.Label(label=f'Masaüstü {wid}' + (f'  ·  {n} pencere' if n else '  ·  boş')); lb.add_css_class('mc-title'); v.append(lb)
             b.set_child(v); b.connect('clicked', lambda _b, w=wid: self.daemon.mc_goto(w))
             mc = Gtk.EventControllerMotion(); mc.connect('enter', lambda *_a, w=wid: self.select(w)); b.add_controller(mc)
+            self.drop_target(b, wid)
             self.bar.append(b); self.thumbs[wid] = b
         add = Gtk.Button(label='+'); add.add_css_class('mc-add'); add.set_focusable(False); add.set_tooltip_text('Yeni masaüstü')
-        add.connect('clicked', lambda *_: self.daemon.mc_goto(max(data['ids']) + 1)); self.bar.append(add)
+        add.connect('clicked', lambda *_: self.daemon.mc_goto(max(data['ids']) + 1)); self.drop_target(add, max(data['ids']) + 1); self.bar.append(add)
         self.select(data['active'])
+
+    def drop_target(self, btn, ws):
+        """Pencere kartı bu masaüstü küçük resmine bırakılınca pencere o masaüstüne taşınır."""
+        dt = Gtk.DropTarget.new(str, Gdk.DragAction.MOVE)
+        dt.connect('enter', lambda *_: (btn.add_css_class('drop'), Gdk.DragAction.MOVE)[1])
+        dt.connect('leave', lambda *_: btn.remove_css_class('drop'))
+        dt.connect('drop', lambda t, val, x, y: (btn.remove_css_class('drop'), self.daemon.mc_move(self, val, ws), True)[2])
+        btn.add_controller(dt)
+
+    def refresh(self):
+        """Pencere taşındıktan sonra görünümü güncelle (ekran görüntüsünü yeniden almadan)."""
+        old, sel = self.data, self.sel
+        data = mc_collect(self.gmon.get_connector() if self.gmon else None, grab=False)
+        if not data or not old: return
+        data['shot'] = old.get('shot')
+        self.build(data)
+        if sel in data['ids']: self.select(sel)
 
     def select(self, wid):
         import math
@@ -1774,6 +1794,10 @@ class MissionControl(Gtk.ApplicationWindow):
                 t = Gtk.Label(label=c['title'] or c['class'], ellipsize=3, max_width_chars=40); t.add_css_class('mc-title'); h.append(t)
                 v.append(h); b.set_child(v)
                 b.connect('clicked', lambda _b, cc=c: self.daemon.mc_focus(cc))
+                ds = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
+                ds.connect('prepare', lambda _s, _x, _y, a=c['address']: Gdk.ContentProvider.new_for_value(a))
+                ds.connect('drag-begin', lambda s_, _d, bb=b: s_.set_icon(Gtk.WidgetPaintable.new(bb), 40, 30))
+                b.add_controller(ds)
                 row.append(b)
             self.area.append(row)
 
@@ -1891,6 +1915,12 @@ class CCDaemon:
 
     def mc_goto(self, ws):
         self.hide(); sh(f"hyprctl dispatch 'hl.dsp.focus({{ workspace = {int(ws)} }})'")
+
+    def mc_move(self, mc, address, ws):
+        """Pencereyi (adresiyle) başka masaüstüne taşı; odak/masaüstü değişmesin, Mission Control açık kalsın."""
+        if not re.fullmatch(r'0x[0-9a-fA-F]+', str(address)): return
+        sh(f"hyprctl dispatch 'hl.dsp.window.move({{ workspace = {int(ws)}, follow = false, window = \"address:{address}\" }})'")
+        GLib.timeout_add(180, lambda: (mc.refresh(), False)[1])
 
     def mc_focus(self, c):
         self.hide()
