@@ -484,13 +484,36 @@ def pane_battery():
     g2.add(r_combo('Güç profili', names, profs.index(cur) if cur in profs else 1, lambda i: bg_run(f'powerprofilesctl set {profs[i]}')))
     return new_page(g, g2)
 
+def gpu_names():
+    """Ekran kartı adları — sysfs + pci.ids. `lspci` PCI yapılandırmasını okurken uykudaki NVIDIA kartını uyandırıp 1.5-2+ sn
+    bekletiyordu (pencere o sırada açılamıyordu); sysfs öznitelikleri çekirdekte önbellekli, kartı uyandırmaz."""
+    devs = []
+    for d in sorted(glob.glob('/sys/bus/pci/devices/*')):
+        try:
+            if open(d + '/class').read().startswith('0x03'):
+                devs.append((open(d + '/vendor').read().strip()[2:], open(d + '/device').read().strip()[2:]))
+        except Exception: pass
+    names = {}
+    for path in ('/usr/share/hwdata/pci.ids', '/usr/share/misc/pci.ids'):
+        if os.path.exists(path):
+            vend = None
+            for line in open(path, errors='ignore'):
+                if line.startswith('#') or not line.strip(): continue
+                if not line.startswith('\t'):
+                    vend = line[:4].lower(); vname = line[4:].strip(); continue
+                if line.startswith('\t\t'): continue
+                did = line[1:5].lower()
+                if (vend, did) in devs and (vend, did) not in names: names[(vend, did)] = f'{vname} {line[5:].strip()}'
+            break
+    return ' · '.join(names.get(x, f'{x[0]}:{x[1]}') for x in devs)
+
 def pane_general():
     g = grp('Bu Mac Hakkında')
     host = sh('hostnamectl --static') or sh('hostname')
     model = sh('cat /sys/class/dmi/id/product_name')
     cpu = sh("lscpu | awk -F: '/Model name/{gsub(/^ +/,\"\",$2);print $2;exit}'")
     mem = sh("free -h | awk '/Mem:/{print $2}'")
-    gpus = ' · '.join(re.sub(r'^.*: ', '', x) for x in sh('lspci | grep -E "VGA|3D"').split('\n') if x)
+    gpus = gpu_names()
     os_ = sh("grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"'")
     for t, v in [('Ad', host), ('Model', model), ('Yonga', cpu), ('Bellek', mem + ' RAM'), ('Grafik', gpus), ('Sistem', os_),
                  ('Çekirdek', sh('uname -r')), ('Seri numarası', sh('cat /sys/class/dmi/id/product_serial 2>/dev/null') or '—'),
