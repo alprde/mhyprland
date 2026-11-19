@@ -12,7 +12,7 @@ if any(a.startswith('--control-center') for a in _sys.argv) and 'libgtk4-layer-s
         _os.execv(_sys.executable, [_sys.executable] + _sys.argv)
 import gi, json, os, re, subprocess, threading, sys, shutil, glob, time, signal
 gi.require_version('Gtk', '4.0'); gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, GLib, Gio, Gdk
+from gi.repository import Gtk, Adw, GLib, Gio, Gdk, GObject
 try:
     gi.require_version('Gtk4LayerShell', '1.0')
     from gi.repository import Gtk4LayerShell
@@ -1696,6 +1696,16 @@ class WsThumb(Gtk.DrawingArea):
             cr.set_source_rgba(1, 1, 1, 0.55); cr.set_line_width(1); cr.stroke()
 
 
+class ScaledPaintable(GObject.Object, Gdk.Paintable):
+    """Sürükleme simgesi: bir widget'ın küçültülmüş canlı görüntüsü."""
+    def __init__(self, inner, k):
+        super().__init__(); self.inner, self.k = inner, k
+    def do_get_intrinsic_width(self): return max(1, int(self.inner.get_intrinsic_width() * self.k))
+    def do_get_intrinsic_height(self): return max(1, int(self.inner.get_intrinsic_height() * self.k))
+    def do_get_intrinsic_aspect_ratio(self): return self.inner.get_intrinsic_aspect_ratio()
+    def do_snapshot(self, snapshot, w, h): self.inner.snapshot(snapshot, w, h)
+
+
 class MissionControl(Gtk.ApplicationWindow):
     def __init__(self, app, daemon, gmon):
         super().__init__(application=app, decorated=False)
@@ -1747,6 +1757,14 @@ class MissionControl(Gtk.ApplicationWindow):
         dt.connect('drop', lambda t, val, x, y: (btn.remove_css_class('drop'), self.daemon.mc_move(self, val, ws), True)[2])
         btn.add_controller(dt)
 
+    def drag_begin(self, src, card):
+        """Kart sürüklenirken asıl kart gizlenir; fareyle küçültülmüş kartın kendisi (kopya değil, taşınan pencere gibi) gider."""
+        k = min(1.0, 260.0 / max(1, card.get_width()))
+        sx, sy = card.get_width() / 2, card.get_height() / 2   # küçük kart fareye ortalı
+        still = Gtk.WidgetPaintable.new(card).get_current_image()   # sabit kopya: asıl kartı gizleyince simge de kaybolmasın
+        src.set_icon(ScaledPaintable(still, k), int(sx * k), int(sy * k))
+        card.set_opacity(0.0)
+
     def refresh(self):
         """Pencere taşındıktan sonra görünümü güncelle (ekran görüntüsünü yeniden almadan)."""
         old, sel = self.data, self.sel
@@ -1795,8 +1813,10 @@ class MissionControl(Gtk.ApplicationWindow):
                 v.append(h); b.set_child(v)
                 b.connect('clicked', lambda _b, cc=c: self.daemon.mc_focus(cc))
                 ds = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
-                ds.connect('prepare', lambda _s, _x, _y, a=c['address']: Gdk.ContentProvider.new_for_value(a))
-                ds.connect('drag-begin', lambda s_, _d, bb=b: s_.set_icon(Gtk.WidgetPaintable.new(bb), 40, 30))
+                ds.connect('prepare', lambda _s, x_, y_, a=c['address']: (setattr(self, '_drag_xy', (x_, y_)), Gdk.ContentProvider.new_for_value(a))[1])
+                ds.connect('drag-begin', lambda s_, _d, bb=b: self.drag_begin(s_, bb))
+                ds.connect('drag-end', lambda s_, _d, _del, bb=b: bb.set_opacity(1.0))
+                ds.connect('drag-cancel', lambda s_, _d, _r, bb=b: (bb.set_opacity(1.0), False)[1])
                 b.add_controller(ds)
                 row.append(b)
             self.area.append(row)

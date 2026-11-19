@@ -24,6 +24,7 @@ try:
     goto(x1, y1); time.sleep(0.4)
     emit(1, 0x110, 1); emit(0, 0, 0); time.sleep(0.3)
     goto(x1 + 30, y1 - 30); goto(x2, y2, 0.05); time.sleep(0.6)
+    if os.environ.get('SHOT'): subprocess.run(['grim', '-o', 'eDP-1', os.environ['SHOT']])   # sürükleme sırasında görüntü
     print('bırakılıyor', pos(), flush=True)
     emit(1, 0x110, 0); emit(0, 0, 0); time.sleep(0.8)
 finally:
