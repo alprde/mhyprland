@@ -6,4 +6,5 @@ ShellRoot {
         model: Quickshell.screens
         delegate: Bar {}
     }
+    HotCorners {}
 }

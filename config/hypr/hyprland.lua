@@ -82,6 +82,9 @@ hl.bind(mod .. " + ALT + Tab", hl.dsp.exec_cmd("rofi -show window"))            
 hl.bind(mod .. " + comma",  hl.dsp.exec_cmd(P .. "tahoe-settings"))
 hl.bind(mod .. " + CTRL + Q", hl.dsp.exec_cmd("hyprlock"))
 hl.bind(mod .. " + L", hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))   -- Super+L: ekranı kilitle (Win+L)
+hl.bind(mod .. " + ALT + equal", hl.dsp.exec_cmd(P .. "tahoe-zoom in"))      -- ⌘⌥=  yakınlaştır (Erişilebilirlik)
+hl.bind(mod .. " + ALT + minus", hl.dsp.exec_cmd(P .. "tahoe-zoom out"))     -- ⌘⌥−  uzaklaştır
+hl.bind(mod .. " + ALT + 0", hl.dsp.exec_cmd(P .. "tahoe-zoom reset"))      -- ⌘⌥0  sıfırla
 hl.bind(mod .. " + ALT + Escape", hl.dsp.exec_cmd(P .. "tahoe-forcequit"))
 hl.bind(mod .. " + SHIFT + 3", hl.dsp.exec_cmd("hyprshot -m output --clipboard-only"))
 hl.bind(mod .. " + SHIFT + 4", hl.dsp.exec_cmd("hyprshot -m region --clipboard-only"))

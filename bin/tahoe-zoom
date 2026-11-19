@@ -1,0 +1,10 @@
+#!/bin/sh
+# Erişilebilirlik › Yakınlaştırma: tahoe-zoom in | out | reset   (Hyprland cursor:zoom_factor; ⌘⌥= / ⌘⌥− / ⌘⌥0)
+cur=$(hyprctl getoption cursor:zoom_factor -j 2>/dev/null | jq -r '.float // .int // 1')
+case "$1" in
+  in)    n=$(awk -v c="$cur" 'BEGIN{n=c+0.5; if(n>5)n=5; print n}') ;;
+  out)   n=$(awk -v c="$cur" 'BEGIN{n=c-0.5; if(n<1)n=1; print n}') ;;
+  reset) n=1 ;;
+  *) echo "kullanım: tahoe-zoom in|out|reset"; exit 1 ;;
+esac
+hyprctl eval "hl.config({ cursor = { zoom_factor = $n } })" >/dev/null
