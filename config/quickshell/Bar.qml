@@ -171,14 +171,14 @@ PanelWindow {
             }
         }
 
-        BarButton {   // pil
+        BarButton {   // pil: macOS tarzı yatay, QML ile çizilir
+            id: batt
             readonly property var dev: UPower.displayDevice
             readonly property real pct: dev ? (dev.percentage <= 1 ? dev.percentage * 100 : dev.percentage) : 0
-            readonly property bool charging: dev && (dev.state === UPowerDeviceState.Charging || dev.state === UPowerDeviceState.FullyCharged || dev.state === UPowerDeviceState.PendingCharge)
-            visible: dev && dev.isPresent
-            text: String.fromCodePoint(0xE901 + Math.min(4, Math.floor(pct / 20)))
-            family: Theme.icons; pixelSize: 22; yOffset: -0.4
-            color: charging ? "#30d158" : (pct <= 12 ? "#ff453a" : (pct <= 25 ? "#ff9f0a" : Theme.fg))
+            readonly property bool charging: !!dev && (dev.state === UPowerDeviceState.Charging || dev.state === UPowerDeviceState.FullyCharged || dev.state === UPowerDeviceState.PendingCharge)
+            visible: !!dev && dev.isPresent
+            minW: 25
+            BatteryIcon { anchors.centerIn: parent; level: batt.pct; charging: batt.charging }
             tip: {
                 const p = Math.round(pct) + "%"
                 if (!dev) return ""

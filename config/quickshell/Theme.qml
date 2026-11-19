@@ -11,7 +11,8 @@ Singleton {
     property color fg: "#f5f5f7"
     property color accent: "#0a84ff"
     property color barBg: Qt.rgba(30 / 255, 30 / 255, 36 / 255, 0.55)
-    property color menuBg: Qt.rgba(30 / 255, 30 / 255, 36 / 255, 0.93)   // Wayland popup'larında bulanıklık yok → daha opak
+    property real menuAlpha: 0.93                                          // cam görünümü: arkası Hyprland'de bulanıklaştırılır (blur_popups)
+    property color menuBg: Qt.rgba(30 / 255, 30 / 255, 36 / 255, menuAlpha)
     property var ov: [1, 1, 1]                                            // yazı üstü katman rengi (koyuda beyaz, açıkta siyah)
     readonly property color fgDim: Qt.rgba(ov[0], ov[1], ov[2], 0.45)
     readonly property color hover: Qt.rgba(ov[0], ov[1], ov[2], 0.14)
@@ -41,7 +42,7 @@ Singleton {
                 if (j.ov) root.ov = j.ov.split(",").map(x => parseInt(x) / 255)
                 root.barBg = root.rgba(j.panel, root.barBg)
                 const t = root.rgba(j.tip, root.menuBg)
-                root.menuBg = Qt.rgba(t.r, t.g, t.b, Math.max(t.a, 0.93))
+                root.menuBg = Qt.rgba(t.r, t.g, t.b, root.menuAlpha)
             } catch (e) { console.log("bar-theme.json okunamadı:", e) }
         }
     }

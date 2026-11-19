@@ -4,3 +4,4 @@ Bar 1.0 Bar.qml
 BarButton 1.0 BarButton.qml
 MenuList 1.0 MenuList.qml
 MenuPopup 1.0 MenuPopup.qml
+BatteryIcon 1.0 BatteryIcon.qml
