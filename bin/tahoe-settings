@@ -1607,6 +1607,7 @@ button.mc-space:hover { background: rgba(255,255,255,0.14); }
 button.mc-space.sel { border-color: #0a84ff; background: rgba(255,255,255,0.12); }
 button.mc-add { background: rgba(255,255,255,0.08); border: 2px dashed rgba(255,255,255,0.35); border-radius: 12px; min-width: 110px; box-shadow: none; background-image: none; font-size: 28px; color: rgba(255,255,255,0.8); }
 button.mc-add:hover { background: rgba(255,255,255,0.18); }
+button.mc-card.drop { border-color: #0a84ff; background: rgba(10,132,255,0.22); }
 button.mc-space.drop, button.mc-add.drop { border-color: #0a84ff; background: rgba(10,132,255,0.28); }
 button.mc-card { background: rgba(255,255,255,0.07); border: 2px solid transparent; border-radius: 14px; padding: 10px; box-shadow: none; background-image: none; }
 button.mc-card:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.55); }
@@ -1771,6 +1772,8 @@ class MissionControl(Gtk.ApplicationWindow):
         data = mc_collect(self.gmon.get_connector() if self.gmon else None, grab=False)
         if not data or not old: return
         data['shot'] = old.get('shot')
+        pos0 = dict(old.get('pos0') or {c['address']: (c['at'], c['size']) for c in old['clients']})
+        data['pos0'] = pos0
         self.build(data)
         if sel in data['ids']: self.select(sel)
 
@@ -1781,7 +1784,7 @@ class MissionControl(Gtk.ApplicationWindow):
         for k, b in self.thumbs.items(): (b.add_css_class if k == wid else b.remove_css_class)('sel')
         self.clear(self.area)
         d = self.data
-        items = [c for c in d['clients'] if c['workspace']['id'] == wid]
+        items = sorted((c for c in d['clients'] if c['workspace']['id'] == wid), key=lambda c: (c['at'][1], c['at'][0]))   # ekrandaki konuma göre (satır satır)
         if not items:
             l = Gtk.Label(label='Bu masaüstünde pencere yok'); l.add_css_class('mc-empty'); self.area.append(l); return
         n = len(items)
@@ -1800,8 +1803,9 @@ class MissionControl(Gtk.ApplicationWindow):
                 pic = None
                 if wid == d['active'] and shot is not None:
                     try:
-                        x0 = int((c['at'][0] - mon['x']) * scale); y0 = int((c['at'][1] - mon['y']) * scale)
-                        crop = shot.crop((max(0, x0), max(0, y0), min(shot.width, x0 + int(cw * scale)), min(shot.height, y0 + int(ch * scale))))
+                        (ax, ay), (aw, ah) = d.get('pos0', {}).get(c['address'], (c['at'], c['size']))   # görüntü alındığı andaki konum (takastan sonra da doğru kırpma)
+                        x0 = int((ax - mon['x']) * scale); y0 = int((ay - mon['y']) * scale)
+                        crop = shot.crop((max(0, x0), max(0, y0), min(shot.width, x0 + int(aw * scale)), min(shot.height, y0 + int(ah * scale))))
                         crop.thumbnail((tw * 2, th * 2)); pic = Gtk.Picture.new_for_paintable(pil_texture(crop)); pic.set_content_fit(Gtk.ContentFit.FILL)
                     except Exception: pic = None
                 if pic is None:
@@ -1818,6 +1822,11 @@ class MissionControl(Gtk.ApplicationWindow):
                 ds.connect('drag-end', lambda s_, _d, _del, bb=b: bb.set_opacity(1.0))
                 ds.connect('drag-cancel', lambda s_, _d, _r, bb=b: (bb.set_opacity(1.0), False)[1])
                 b.add_controller(ds)
+                dt = Gtk.DropTarget.new(str, Gdk.DragAction.MOVE)
+                dt.connect('enter', lambda t, x, y, bb=b: (bb.add_css_class('drop'), Gdk.DragAction.MOVE)[1])
+                dt.connect('leave', lambda _t, bb=b: bb.remove_css_class('drop'))
+                dt.connect('drop', lambda t, val, x, y, bb=b, aa=c['address']: (bb.remove_css_class('drop'), self.daemon.mc_swap(self, val, aa), True)[2])
+                b.add_controller(dt)
                 row.append(b)
             self.area.append(row)
 
@@ -1940,6 +1949,13 @@ class CCDaemon:
         """Pencereyi (adresiyle) başka masaüstüne taşı; odak/masaüstü değişmesin, Mission Control açık kalsın."""
         if not re.fullmatch(r'0x[0-9a-fA-F]+', str(address)): return
         sh(f"hyprctl dispatch 'hl.dsp.window.move({{ workspace = {int(ws)}, follow = false, window = \"address:{address}\" }})'")
+        GLib.timeout_add(180, lambda: (mc.refresh(), False)[1])
+
+    def mc_swap(self, mc, a, b):
+        """İki pencerenin yerini değiştir (aynı masaüstünde)."""
+        ok = lambda v: re.fullmatch(r'0x[0-9a-fA-F]+', str(v))
+        if a == b or not ok(a) or not ok(b): return
+        sh(f"hyprctl dispatch 'hl.dsp.window.swap({{ window = \"address:{a}\", target = \"address:{b}\" }})'")
         GLib.timeout_add(180, lambda: (mc.refresh(), False)[1])
 
     def mc_focus(self, c):
