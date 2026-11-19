@@ -54,7 +54,7 @@ if [ "$UNINSTALL" = 1 ]; then
   for f in "$HOME"/.local/bin/tahoe-*; do
     if [ -e "$f" ]; then run rm -f "$f"; fi
   done
-  run rm -rf "$HOME/.themes/Tahoe" "$STATE" "$HOME/.config/tahoe"
+  run rm -rf "$HOME/.themes/Tahoe" "$STATE" "$HOME/.config/tahoe" "$HOME/.config/quickshell/tahoe"
   run rm -f "$HOME/.config/hypr/tahoe.lua" "$HOME/.config/hypr/hypridle.conf" "$HOME/.config/hypr/hyprlock.conf" "$HOME/.config/hypr/hyprpaper.conf"
   LAST="$(ls -d "$HOME"/.config-backup-tahoe-* 2>/dev/null | tail -1 || true)"
   if [ -n "$LAST" ]; then
@@ -85,7 +85,7 @@ fi
 # ───────────────────────── packages ─────────────────────────
 PKGS=(
   hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpaper hyprlock hypridle hyprpolkitagent hyprshot hyprsunset
-  kitty waybar rofi swaync nwg-dock-hyprland grim slurp wl-clipboard cliphist brightnessctl playerctl jq
+  kitty quickshell waybar rofi swaync nwg-dock-hyprland grim slurp wl-clipboard cliphist brightnessctl playerctl jq
   pipewire pipewire-pulse wireplumber pavucontrol networkmanager nm-connection-editor bluez bluez-utils power-profiles-daemon
   dbus gtk4-layer-shell python-fonttools python python-gobject python-cairo python-numpy python-pillow gtk4 libadwaita
   inter-font ttf-jetbrains-mono-nerd otf-font-awesome capitaine-cursors breeze-icons adwaita-icon-theme
@@ -118,7 +118,7 @@ fi
 # ───────────────────────── backup ─────────────────────────
 say "Backing up existing configs → $BACKUP" "Mevcut ayarlar yedekleniyor → $BACKUP"
 run mkdir -p "$BACKUP"
-for d in hypr waybar rofi swaync nwg-dock-hyprland gtk-3.0 gtk-4.0 tahoe; do
+for d in hypr waybar quickshell rofi swaync nwg-dock-hyprland gtk-3.0 gtk-4.0 tahoe; do
   if [ -e "$HOME/.config/$d" ]; then run cp -a "$HOME/.config/$d" "$BACKUP/$d"; fi
 done
 if [ "$DRY" = 0 ] && [ -z "$(ls -A "$BACKUP" 2>/dev/null)" ]; then rmdir "$BACKUP"; fi
@@ -126,7 +126,7 @@ if [ "$DRY" = 0 ] && [ -z "$(ls -A "$BACKUP" 2>/dev/null)" ]; then rmdir "$BACKU
 # ───────────────────────── install files ─────────────────────────
 say "Installing files…" "Dosyalar yerleştiriliyor…"
 run mkdir -p "$HOME/.local/bin" "$STATE" "$HOME/.themes/Tahoe/gtk-3.0" "$HOME/.themes/Tahoe/gtk-4.0" \
-  "$HOME/.config"/{hypr,waybar,rofi,swaync,nwg-dock-hyprland,gtk-3.0,gtk-4.0,tahoe}
+  "$HOME/.config"/{hypr,waybar,quickshell,rofi,swaync,nwg-dock-hyprland,gtk-3.0,gtk-4.0,tahoe}
 run cp "$SRC"/bin/tahoe-* "$HOME/.local/bin/"
 run chmod +x "$HOME"/.local/bin/tahoe-*
 run cp "$SRC/share/tahoe/base.css" "$STATE/base.css"
@@ -141,6 +141,8 @@ for t in hyprlock.conf hyprpaper.conf; do
 done
 if [ "$DRY" = 0 ]; then python3 "$SRC/tools/make-avatar.py" "$HOME/.cache/tahoe/avatar.png" "$USER" 2>/dev/null || true; fi
 run cp "$SRC/config/waybar/config.jsonc" "$HOME/.config/waybar/config.jsonc"
+run mkdir -p "$HOME/.config/quickshell/tahoe"
+run cp "$SRC"/config/quickshell/* "$HOME/.config/quickshell/tahoe/"   # üst çubuk + elma/uygulama menüsü (Quickshell, "qs -c tahoe"; kendi yapılandırmanıza dokunmaz; Waybar yedek)
 run cp "$SRC"/config/rofi/*.rasi "$HOME/.config/rofi/"
 run cp "$SRC/config/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
 run cp "$SRC/config/gtk-4.0/settings.ini" "$HOME/.config/gtk-4.0/settings.ini"

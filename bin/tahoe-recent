@@ -12,6 +12,7 @@ for _, f in sorted(out, reverse=True)[:15]:
     if os.path.exists(f): print(f)
 PY
 )
+[ "$1" = "--list" ] && { printf '%s\n' "$files"; exit 0; }   # alt menü (Quickshell) için yalnızca liste
 [ -z "$files" ] && files="(Son kullanılan öğe yok)"
 sel=$(printf '%s\n' "$files" | rofi -dmenu -i -p "" -mesg "Son Kullanılan Öğeler" -theme ~/.config/rofi/apple.rasi -theme-str 'window {width: 480px;}')
 [ -n "$sel" ] && [ -e "$sel" ] && exec xdg-open "$sel"

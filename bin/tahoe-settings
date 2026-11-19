@@ -110,6 +110,8 @@ def apply_theme():
         sh("gsettings set org.gnome.desktop.interface gtk-theme Tahoe")
     p = palette(dark)
     ov = p['OV']
+    os.makedirs(f'{HOME}/.config/tahoe', exist_ok=True)   # Quickshell çubuğu bu dosyayı izler
+    open(f'{HOME}/.config/tahoe/bar-theme.json', 'w').write(json.dumps({'dark': bool(dark), 'fg': p['FG'], 'ov': ov, 'panel': p['PANEL'], 'tip': p['TIP'], 'accent': acc}))
     open(f'{HOME}/.config/waybar/style.css', 'w').write(f'''* {{ font-family: "Inter", "JetBrainsMono NFM", "JetBrainsMono Nerd Font"; font-size: 13px; font-weight: 500; border: none; border-radius: 0; min-height: 0; }}
 window#waybar {{ background: {p['PANEL']}; color: {p['FG']}; border-bottom: 1px solid rgba({ov},0.08); }}
 #clock.apple, #window, #pulseaudio, #network, #battery, #clock.time, #clock.notif, #clock.spotlight, #clock.control, #bluetooth {{ margin: 3px 1px; border-radius: 6px; }}
@@ -554,7 +556,7 @@ def pane_dock():
     pos = ['bottom', 'left', 'right']
     g.add(r_combo('Ekrandaki konum', ['Altta', 'Solda', 'Sağda'], pos.index(d['position']), lambda i: (d.__setitem__('position', pos[i]), save(), restart_dock_soon())))
     g2 = grp('Menü çubuğu')
-    g2.add(r_button('Menü çubuğunu yeniden başlat', 'Yeniden başlat', lambda: bg_run('pkill waybar; sleep 0.5; waybar')))
+    g2.add(r_button('Menü çubuğunu yeniden başlat', 'Yeniden başlat', lambda: bg_run('pkill -x qs; pkill -x quickshell; pkill -x waybar; sleep 0.5; if command -v qs >/dev/null; then exec qs -c tahoe; else exec waybar; fi')))
     return new_page(g, g2)
 
 _dt = None

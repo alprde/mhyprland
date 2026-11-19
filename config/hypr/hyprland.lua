@@ -17,7 +17,7 @@ local mod      = "SUPER"
 
 hl.on("hyprland.start", function()
   hl.exec_cmd("hyprpaper")
-  hl.exec_cmd(P .. "waybar")
+  hl.exec_cmd(P .. "sh -c 'command -v qs >/dev/null && exec qs -c tahoe || exec waybar'")   -- Quickshell çubuğu (kurulu değilse Waybar)
   hl.exec_cmd("hypridle -c " .. home .. "/.config/hypr/hypridle.conf")
   hl.exec_cmd("swaync")
   hl.exec_cmd(P .. "tahoe-tray-assist")
@@ -126,7 +126,7 @@ hl.animation({ leaf = "fade",       enabled = true, speed = 4, bezier = "macIn" 
 hl.animation({ leaf = "workspaces", enabled = true, speed = 5, bezier = "mac", style = "slide" })
 
 -- Cam efekti: bar, dock, menü, bildirimler bulanık
-for _, ns in ipairs({ "waybar", "rofi", "swaync-control-center", "swaync-notification-window", "nwg-dock", "tahoe-cc" }) do
+for _, ns in ipairs({ "waybar", "rofi", "swaync-control-center", "swaync-notification-window", "nwg-dock", "tahoe-cc", "tahoe-bar" }) do
   hl.layer_rule({ name = "blur-" .. ns, match = { namespace = ns }, blur = true, ignore_alpha = 0.2 })
 end
 

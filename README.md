@@ -40,7 +40,7 @@ The installer backs up your existing `hypr`, `waybar`, `rofi`, `swaync`, `nwg-do
 
 ## What you get · Neler var
 
-- **Menu bar** (waybar): Apple logo, active app name (click → app menu), workspaces, tray, battery, Wi-Fi, volume, Spotlight, Control Center, clock, notifications. Glass blur, rounded windows, macOS-style animations.
+- **Menu bar + Apple/App menus** ([Quickshell](https://quickshell.org), `config/quickshell`): Apple logo, active app name, workspaces, tray, battery, Wi-Fi, Control Center, Spotlight, clock. The Apple and App menus are real drop-downs (right-aligned shortcuts, hover highlight, working submenu, keyboard ↑↓ ←→ Enter Esc). Falls back to Waybar if Quickshell isn't installed.
 - **Apple menu**: About This Mac, System Settings, Software Store, Recent Items, Force Quit, Sleep, Restart, Shut Down, Lock Screen, Log Out.
 - **System Settings** (`tahoe-settings`, GTK4/libadwaita), 21 panes: Wi-Fi, Bluetooth, Network, Battery, General (about/storage/updates), Appearance (light/dark + 8 accent colors), Accessibility, Desktop & Dock, Displays (draggable layout, scaled resolutions, refresh rate, rotation, mirroring, VRR, night light), Wallpaper, Notifications & Focus, Sound, Lock Screen, Privacy & Security, Login Items, Users, Keyboard, Mouse & Trackpad, Printers, Date & Time, Language & Region.
 - **Control Center** (a popup under the menu bar, opens instantly via a small background daemon; closes on outside click or `Esc`): Wi-Fi, Bluetooth, dark mode, Do Not Disturb, brightness, volume, power profile, now playing.
@@ -82,7 +82,7 @@ See [NOTES.md](NOTES.md) for architecture, design decisions and the pitfalls we 
 
 ```
 bin/       tahoe-settings (app + Control Center), tahoe-apple-menu, tahoe-app-menu, tahoe-dock, …
-config/    hyprland.lua, waybar, rofi, gtk settings, hyprlock/hyprpaper templates
+config/    hyprland.lua, quickshell (bar + menus), waybar (fallback), rofi, gtk settings, hyprlock/hyprpaper templates
 share/     base.css  — the GTK theme source (dark; light is derived)
 themes/    Tahoe GTK theme metadata
 install.sh one-command installer / uninstaller
