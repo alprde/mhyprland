@@ -132,3 +132,50 @@ levelbar trough { background-color: alpha(@window_fg_color, 0.16); border-radius
 levelbar block { min-height: 6px; border-radius: 999px; border: none; }
 levelbar block.filled { background-color: @accent_bg_color; }
 levelbar block.empty { background-color: transparent; }
+
+/* ───────── Sistem Ayarları: macOS Tahoe tasarımı (Apple'ın Görünüm sayfası görüntüsüne göre) ───────── */
+window.tahoe-settings headerbar { background-color: transparent; border-bottom: none; box-shadow: none; }
+window.tahoe-settings { background-color: alpha(@window_bg_color, 0.96); }
+
+/* yüzen kenar çubuğu adası */
+.tahoe-island { background-color: alpha(@window_fg_color, 0.055); border-radius: 20px; }
+.tahoe-island .navigation-sidebar { background: transparent; padding: 2px 6px 8px 6px; }
+.tahoe-island searchentry, .tahoe-island entry { background-color: alpha(@window_fg_color, 0.09); border-radius: 999px; border: none; min-height: 30px; }
+.tahoe-account { border-radius: 12px; padding: 2px 6px; }
+.tahoe-account-name { font-weight: 600; font-size: 14px; }
+.tahoe-island .navigation-sidebar row { border-radius: 10px; margin: 1px 0; }
+
+/* renkli simge karoları */
+.tahoe-tile { border-radius: 7px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14), 0 1px 2px rgba(0,0,0,0.30); }
+.tahoe-tile image { color: #ffffff; -gtk-icon-style: symbolic; }
+.tile-blue   { background-image: linear-gradient(#45a0ff, #0a72f0); }
+.tile-green  { background-image: linear-gradient(#52dd6a, #2fb34d); }
+.tile-gray   { background-image: linear-gradient(#a7a7ae, #77777e); }
+.tile-black  { background-image: linear-gradient(#4a4a50, #1c1c1f); }
+.tile-red    { background-image: linear-gradient(#ff6a5f, #e53a30); }
+.tile-purple { background-image: linear-gradient(#9a78ff, #6a46e3); }
+.tile-teal   { background-image: linear-gradient(#59d2e6, #1f9fc4); }
+
+/* ‹ › kapsülü ve başlık */
+.tahoe-capsule { background-color: alpha(@window_fg_color, 0.09); border-radius: 999px; padding: 1px 3px; margin: 6px 0 6px 4px; }
+.tahoe-capsule button { min-width: 26px; min-height: 22px; padding: 0 6px; border-radius: 999px; border: none; background: transparent; }
+.tahoe-capsule button:disabled { opacity: 0.35; }
+.tahoe-title { font-weight: 700; font-size: 16px; margin-left: 10px; }
+
+/* gruplu kartlar ve bölüm başlıkları */
+window.tahoe-settings .boxed-list { border-radius: 16px; background-color: alpha(@window_fg_color, 0.055); border: none; }
+window.tahoe-settings preferencesgroup label.heading { font-weight: 700; font-size: 15px; opacity: 1; color: @window_fg_color; margin: 10px 4px 2px 4px; }
+window.tahoe-settings .boxed-list > row { min-height: 44px; }
+window.tahoe-settings .boxed-list > row label.title { font-size: 14px; }
+window.tahoe-settings .boxed-list > row .subtitle { font-size: 12px; }
+
+/* anahtarlar: vurgu rengi (mavi) */
+switch { background-color: alpha(@window_fg_color, 0.18); border: none; }
+switch:checked { background-color: @accent_bg_color; }
+switch slider { background-color: #ffffff; border-radius: 999px; box-shadow: 0 1px 3px rgba(0,0,0,0.35); }
+
+/* Görünüm: seçenek önizleme karoları */
+.tahoe-choice { border-radius: 12px; padding: 4px; background: transparent; border: 2px solid transparent; }
+.tahoe-choice:checked { border-color: @accent_bg_color; background: transparent; }
+.tahoe-choice-label { font-size: 12px; opacity: 0.7; }
+.tahoe-choice:checked + .tahoe-choice-label, .tahoe-choice-label.sel { font-weight: 700; opacity: 1; }

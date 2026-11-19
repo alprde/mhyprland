@@ -576,7 +576,7 @@ def pane_wifi():
         bg(work, done)
     g3 = grp()
     g3.add(r_button('Ağları yeniden tara', 'Tara', lambda: (bg_run('nmcli dev wifi rescan'), GLib.timeout_add(2500, lambda: (refresh(), False)[1]))))
-    g3.add(r_button('Gelişmiş…', 'Aç…', lambda: bg_run('nm-connection-editor'), 'Bilinen ağlar, VPN, statik IP, DNS'))
+    if shutil.which('nm-connection-editor'): g3.add(r_button('Gelişmiş…', 'Aç…', lambda: bg_run('nm-connection-editor'), 'Bilinen ağlar, VPN, statik IP, DNS'))
     refresh()
     if on:
         bg_run('nmcli dev wifi rescan'); GLib.timeout_add(3000, lambda: (refresh(), False)[1])
@@ -646,7 +646,7 @@ def pane_network():
         on = bool(dev)
         sw = r_switch(name, on, lambda v, n=name: bg_run(f"nmcli con {'up' if v else 'down'} id '{n}'"), 'WireGuard' if typ == 'wireguard' else 'VPN')
         g2.add(sw)
-    g2.add(r_button('VPN ve gelişmiş yapılandırma', 'Aç…', lambda: bg_run('nm-connection-editor')))
+    if shutil.which('nm-connection-editor'): g2.add(r_button('VPN ve gelişmiş yapılandırma', 'Aç…', lambda: bg_run('nm-connection-editor')))
     g3 = grp(); g3.add(r_info('Ana bilgisayar adı', sh('hostname')))
     return new_page(g, g2, g3)
 
@@ -763,12 +763,13 @@ def nav_push(title, builder):
     w = APP.props.active_window
     try: page = builder()
     except Exception as e: page = Adw.StatusPage(title='Bu bölüm açılamadı', description=str(e))
-    if w is not None and hasattr(w, 'push'): w.push(title, page)
+    key = SUB_BY_FN.get(builder) or next((p[0] for p in PANES if p and p[3] is builder), None)
+    if w is not None and hasattr(w, 'push'): w.push(title, page, key)
 
-def nav_row(title, icon, builder, sub=None):
+def nav_row(title, icon, builder, sub=None, color='gray'):
     r = Adw.ActionRow(title=title, activatable=True)
     if sub: r.set_subtitle(sub)
-    r.add_prefix(Gtk.Image.new_from_icon_name(icon)); r.add_suffix(Gtk.Image.new_from_icon_name('go-next-symbolic'))
+    r.add_prefix(tile(icon, color, 28)); r.add_suffix(Gtk.Image.new_from_icon_name('go-next-symbolic'))
     r.connect('activated', lambda *_: nav_push(title, builder))
     return r
 
@@ -786,18 +787,69 @@ def pane_general():
 ACCENTS = [('Mavi', '#0a84ff'), ('Mor', '#bf5af2'), ('Pembe', '#ff375f'), ('Kırmızı', '#ff453a'), ('Turuncu', '#ff9f0a'),
            ('Sarı', '#ffd60a'), ('Yeşil', '#30d158'), ('Grafit', '#8e8e93')]
 
+def _pv_rr(cr, x, y, w, h, r):
+    import math
+    cr.new_sub_path(); cr.arc(x + w - r, y + r, r, -math.pi / 2, 0); cr.arc(x + w - r, y + h - r, r, 0, math.pi / 2)
+    cr.arc(x + r, y + h - r, r, math.pi / 2, math.pi); cr.arc(x + r, y + r, r, math.pi, 3 * math.pi / 2); cr.close_path()
+
+def _pv_scene(cr, w, h, dark, window=True):
+    import cairo, math
+    g = cairo.LinearGradient(0, 0, w, h)
+    if dark: g.add_color_stop_rgb(0, 0.03, 0.07, 0.28); g.add_color_stop_rgb(1, 0.10, 0.35, 0.85)
+    else: g.add_color_stop_rgb(0, 0.62, 0.80, 0.98); g.add_color_stop_rgb(1, 0.18, 0.48, 0.96)
+    cr.set_source(g); cr.paint()
+    if not window: return
+    _pv_rr(cr, 10, 12, w * 0.62, h - 20, 6); cr.set_source_rgb(*((0.14, 0.14, 0.17) if dark else (0.97, 0.97, 0.98))); cr.fill()
+    _pv_rr(cr, 14, 18, w * 0.62 - 8, 7, 3.5); cr.set_source_rgb(0.04, 0.52, 1.0); cr.fill()
+    for i, c in enumerate(((1, .37, .34), (1, .74, .18), (.16, .78, .25))):
+        cr.arc(18 + i * 8, h - 14, 2.4, 0, 2 * math.pi); cr.set_source_rgb(*c); cr.fill()
+
+def draw_preview(cr, w, h, kind):
+    """Görünüm sayfasındaki seçenek önizlemeleri (Apple'daki gibi küçük pencere resimleri)."""
+    _pv_rr(cr, 0, 0, w, h, 9); cr.clip()
+    if kind == 'auto':
+        cr.save(); cr.rectangle(0, 0, w / 2, h); cr.clip(); _pv_scene(cr, w, h, False); cr.restore()
+        cr.save(); cr.rectangle(w / 2, 0, w / 2, h); cr.clip(); _pv_scene(cr, w, h, True); cr.restore()
+    elif kind in ('light', 'dark'): _pv_scene(cr, w, h, kind == 'dark')
+    else:                                                     # cam: Şeffaf / Renkli
+        _pv_scene(cr, w, h, False, window=False)
+        _pv_rr(cr, w * 0.16, h * 0.30, w * 0.68, h * 0.40, h * 0.20)
+        cr.set_source_rgba(*((1, 1, 1, 0.55) if kind == 'clear' else (0.40, 0.58, 1.0, 0.80))); cr.fill_preserve()
+        cr.set_source_rgba(1, 1, 1, 0.85); cr.set_line_width(1.2); cr.stroke()
+
+def choice_row(title, sub, opts, current, cb):
+    """Başlık solda, sağda önizleme karoları (seçili olanın çerçevesi vurgu renginde, etiketi kalın)."""
+    r = Adw.ActionRow(title=title)
+    if sub: r.set_subtitle(sub)
+    box = Gtk.Box(spacing=14, valign=Gtk.Align.CENTER, margin_top=10, margin_bottom=10)
+    labels = []; first = None
+    for key, label, kind in opts:
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, halign=Gtk.Align.CENTER)
+        btn = Gtk.ToggleButton(css_classes=['tahoe-choice']); da = Gtk.DrawingArea(content_width=84, content_height=56)
+        da.set_draw_func(lambda a, cr, w, h, k=kind: draw_preview(cr, w, h, k)); btn.set_child(da)
+        if first: btn.set_group(first)
+        else: first = btn
+        lb = Gtk.Label(label=label, css_classes=['tahoe-choice-label']); labels.append(lb)
+        if key == current: btn.set_active(True); lb.add_css_class('sel')
+        def on(b, k=key, l=lb):
+            if b.get_active():
+                for x in labels: x.remove_css_class('sel')
+                l.add_css_class('sel'); cb(k)
+        btn.connect('toggled', on); col.append(btn); col.append(lb); box.append(col)
+    r.add_suffix(box)
+    return r
+
 def pane_appearance():
     import datetime
     modes = ['light', 'dark', 'auto']
     g = grp('Görünüm')
     cur = S.get('appearance_mode', 'dark' if S['dark'] else 'light')
     rise, sset = sun_times()
-    g.add(r_combo('Görünüm', ['Açık', 'Koyu', 'Otomatik'], modes.index(cur) if cur in modes else 1, lambda i: set_appearance_mode(modes[i]),
-                  f'Otomatik: gün doğumunda ({rise:%H:%M}) açık, batımında ({sset:%H:%M}) koyu'))
-    g_glass = grp('Liquid Glass')
-    glass = ['clear', 'tinted']
-    def set_glass(i): S['glass'] = glass[i]; save(); bg(apply_theme); schedule_apply()
-    g_glass.add(r_combo('Cam', ['Şeffaf', 'Renkli'], glass.index(S.get('glass', 'clear')), set_glass, 'Şeffaf: arka plan görünür; Renkli: menü ve çubuk daha opak'))
+    g.add(choice_row('Görünüm', f'Otomatik: gün doğumunda ({rise:%H:%M}) açık, batımında ({sset:%H:%M}) koyu',
+                     [('auto', 'Otomatik', 'auto'), ('light', 'Açık', 'light'), ('dark', 'Koyu', 'dark')], cur if cur in modes else 'dark', set_appearance_mode))
+    g_glass = grp()
+    def set_glass(k): S['glass'] = k; save(); bg(apply_theme); schedule_apply()
+    g_glass.add(choice_row('Liquid Glass', 'Cam görünümünü seçin', [('clear', 'Şeffaf', 'clear'), ('tinted', 'Renkli', 'tinted')], S.get('glass', 'clear'), set_glass))
     g_glass.add(r_switch('Bulanıklık efekti', S['look']['blur'], lambda v: (S['look'].__setitem__('blur', v), schedule_apply()), 'Pencerelerin ve menülerin arkasını bulanıklaştırır'))
     g2 = grp('Renk')
     box = Gtk.Box(spacing=10, halign=Gtk.Align.CENTER, margin_top=12, margin_bottom=12)
@@ -898,10 +950,10 @@ def page_a11y_general():
 def pane_access():
     """Apple'ın Erişilebilirlik sayfası: kategorilere giden bir liste."""
     g = grp()
-    g.add(nav_row('Görme', 'view-reveal-symbolic', page_a11y_vision, 'Ekran, yakınlaştırma, işaretçi, metin boyutu'))
-    g.add(nav_row('İşitme', 'audio-headphones-symbolic', page_a11y_hearing, 'Ses dengesi, ses efektleri'))
-    g.add(nav_row('Hareket', 'input-mouse-symbolic', page_a11y_motor, 'İşaretçi denetimi, klavye, fare'))
-    g.add(nav_row('Konuşma', 'audio-input-microphone-symbolic', page_a11y_speech, 'Ekran okuyucu'))
+    g.add(nav_row('Görme', 'view-reveal-symbolic', page_a11y_vision, 'Ekran, yakınlaştırma, işaretçi, metin boyutu', 'blue'))
+    g.add(nav_row('İşitme', 'audio-headphones-symbolic', page_a11y_hearing, 'Ses dengesi, ses efektleri', 'blue'))
+    g.add(nav_row('Hareket', 'input-mouse-symbolic', page_a11y_motor, 'İşaretçi denetimi, klavye, fare', 'blue'))
+    if shutil.which('orca'): g.add(nav_row('Konuşma', 'audio-input-microphone-symbolic', page_a11y_speech, 'Ekran okuyucu', 'blue'))
     g2 = grp(); g2.add(nav_row('Genel', 'preferences-system-symbolic', page_a11y_general, 'Erişilebilirlik kısayolları'))
     return new_page(g, g2)
 
@@ -949,7 +1001,7 @@ def pane_dock():
     g2 = grp('Mission Control')
     g2.add(r_button('Mission Control', 'Aç', lambda: bg_run('tahoe-cc mission'), 'Tüm masaüstlerini ve pencereleri gösterir; pencereleri sürükleyerek taşıyın'))
     g2.add(r_info('Kısayol', '⌘ Tab · ⌘ ⌃ ↑ · üç parmakla yukarı kaydır'))
-    g2.add(nav_row('Etkin Köşeler…', 'view-fullscreen-symbolic', page_hot_corners, 'İşaretçiyi bir köşeye götürünce eylem çalıştırır'))
+    g2.add(nav_row('Etkin Köşeler…', 'view-fullscreen-symbolic', page_hot_corners, 'İşaretçiyi bir köşeye götürünce eylem çalıştırır', 'black'))
     g2.add(r_info('Önceki / sonraki masaüstü', '⌘ ⌃ ← / →'))
     return new_page(g, g2)
 
@@ -1245,8 +1297,7 @@ def pane_notifications():
     g = grp('Bildirimler')
     g.add(r_button('Bildirim Merkezi', 'Aç', lambda: bg_run('swaync-client -t -sw'), 'Saate de tıklayarak açabilirsiniz'))
     g.add(r_button('Tüm bildirimleri temizle', 'Temizle', lambda: bg_run('swaync-client -C')))
-    g2 = grp(); g2.add(nav_row('Odak', 'weather-clear-night-symbolic', pane_focus, 'Rahatsız Etme ve bildirimleri sessize alma'))
-    return new_page(g, g2)
+    return new_page(g)
 
 def pane_focus():
     g = grp('Odak')
@@ -1282,7 +1333,7 @@ def pane_sound():
     g2.add(r_scale('Giriş ses düzeyi', 0, 100, 1, v2, lambda x: bg_run(f'wpctl set-volume @DEFAULT_AUDIO_SOURCE@ {int(x)}%'), unit='%'))
     g2.add(r_switch('Mikrofonu sustur', mu2, lambda x: bg_run(f'wpctl set-mute @DEFAULT_AUDIO_SOURCE@ {1 if x else 0}')))
     g3 = grp(); g3.add(r_button('Gelişmiş ses ayarları', 'Aç…', lambda: bg_run('pavucontrol')))
-    return new_page(g0, g, g2, g3)
+    return new_page(*([g0, g, g2] + ([g3] if shutil.which('pavucontrol') else [])))
 
 DURS = [('Hiçbir zaman', 0), ('1 dakika', 60), ('2 dakika', 120), ('5 dakika', 300), ('10 dakika', 600), ('15 dakika', 900), ('30 dakika', 1800), ('1 saat', 3600), ('2 saat', 7200)]
 
@@ -1338,12 +1389,10 @@ def schedule_idle():
 def pane_privacy():
     g = grp('Gizlilik')
     g.add(r_button('Pano geçmişi', 'Temizle', lambda: bg_run('cliphist wipe 2>/dev/null; wl-copy --clear'), 'Kopyaladığınız öğelerin kaydını siler'))
-    g.add(r_info('Ekran ve Sistem Ses Kaydı', 'Uygulamalar, xdg-desktop-portal-hyprland aracılığıyla her seferinde izin ister'))
     cams = [open(f).read().strip() for f in sorted(glob.glob('/sys/class/video4linux/video*/name')) if 'metadata' not in open(f).read().lower()]
     g.add(r_info('Kamera', ', '.join(dict.fromkeys(cams)) if cams else 'Kamera bulunamadı'))
     v2, mu2 = wp_get('@DEFAULT_AUDIO_SOURCE@')
     g.add(r_switch('Mikrofon', not mu2, lambda v: bg_run(f'wpctl set-mute @DEFAULT_AUDIO_SOURCE@ {0 if v else 1}'), 'Kapalıyken hiçbir uygulama ses alamaz'))
-    g.add(r_info('Konum Servisleri', 'Etkin (geoclue)' if sh('systemctl is-active geoclue') == 'active' else 'Kapalı'))
     g2 = grp('Güvenlik')
     fw = sh('systemctl is-active ufw')
     g2.add(r_info('Güvenlik Duvarı (ufw)', 'Etkin' if fw == 'active' else 'Kapalı'))
@@ -1402,8 +1451,7 @@ def pane_users():
                 bg(lambda: sh(f"pkexec useradd -m -c '{full_}' {name}", 60), lambda out: (toast(f'“{name}” oluşturuldu' if not out else out[:80]), bg_run(f"kitty -e sudo passwd {name}")))
         d.connect('response', resp); d.present(APP.props.active_window)
     g.add(r_button('Kullanıcı Ekle…', 'Ekle…', add_user, 'Yeni bir hesap oluşturur'))
-    g3 = grp(); g3.add(r_info('Otomatik olarak oturum aç', 'Kapalı'))
-    return new_page(g, g2, g3)
+    return new_page(g, g2)
 
 LAYOUTS = [('tr', 'Türkçe Q'), ('us', 'İngilizce (ABD)'), ('gb', 'İngilizce (BK)'), ('de', 'Almanca'), ('fr', 'Fransızca'), ('es', 'İspanyolca'), ('it', 'İtalyanca'), ('ru', 'Rusça'), ('az', 'Azerbaycanca')]
 
@@ -1476,7 +1524,7 @@ def pane_printers():
     g.add(r_info('Yazdırma servisi (CUPS)', 'Çalışıyor' if st == 'active' else 'Kapalı'))
     for ln in sh('lpstat -p 2>/dev/null').split('\n'):
         if ln.strip(): g.add(r_info('Yazıcı', ln))
-    g.add(r_button('Yazıcı ekle / yönet', 'Aç…', lambda: bg_run('system-config-printer'), 'Yazıcılar ve tarayıcılar'))
+    if shutil.which('system-config-printer'): g.add(r_button('Yazıcı ekle / yönet', 'Aç…', lambda: bg_run('system-config-printer'), 'Yazıcılar ve tarayıcılar'))
     g.add(r_button('Yazdırma servisini başlat', 'Başlat', lambda: bg_run('pkexec systemctl enable --now cups')))
     return new_page(g)
 
@@ -1584,16 +1632,52 @@ def no_native_controls(*bars):
         b.set_show_start_title_buttons(False); b.set_show_end_title_buttons(False)
 
 # ───────────────────────── Sistem Ayarları penceresi ─────────────────────────
+# alt sayfalar: anahtar → (üst sayfa, başlık, oluşturucu)
+SUBS = {'datetime': ('general', 'Tarih ve Saat', pane_datetime), 'lang': ('general', 'Dil ve Bölge', pane_lang), 'login': ('general', 'Giriş Öğeleri ve Uzantılar', pane_login),
+        'about': ('general', 'Hakkında', page_about), 'update': ('general', 'Yazılım Güncelleme', page_update), 'storage': ('general', 'Depolama', page_storage),
+        'a11y-vision': ('access', 'Görme', page_a11y_vision), 'a11y-hearing': ('access', 'İşitme', page_a11y_hearing), 'a11y-motor': ('access', 'Hareket', page_a11y_motor),
+        'a11y-speech': ('access', 'Konuşma', page_a11y_speech), 'a11y-general': ('access', 'Genel', page_a11y_general),
+        'corners': ('dock', 'Etkin Köşeler', page_hot_corners), 'shortcuts': ('keyboard', 'Klavye Kısayolları', page_shortcuts)}
+SUB_BY_FN = {v[2]: k for k, v in SUBS.items()}
+
+# macOS Tahoe kenar çubuğu simge karosu renkleri (Apple'ın Görünüm sayfası görüntüsünden)
+PANE_COLORS = {'wifi': 'blue', 'bluetooth': 'blue', 'network': 'blue', 'battery': 'green', 'general': 'gray', 'access': 'blue', 'appearance': 'black',
+               'controlcenter': 'gray', 'dock': 'black', 'displays': 'blue', 'wallpaper': 'teal', 'notifications': 'red', 'sound': 'red', 'focus': 'purple',
+               'lock': 'black', 'privacy': 'blue', 'users': 'blue', 'keyboard': 'gray', 'mouse': 'gray', 'trackpad': 'gray', 'printers': 'gray'}
+
+def tile(icon, color, px):
+    """Yuvarlak köşeli renkli simge karosu (beyaz sembol)."""
+    box = Gtk.Box(halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER, css_classes=['tahoe-tile', f'tile-{color}'])
+    box.set_size_request(px, px)
+    img = Gtk.Image.new_from_icon_name(icon); img.set_pixel_size(max(10, int(px * 0.6)))
+    img.set_halign(Gtk.Align.CENTER); img.set_valign(Gtk.Align.CENTER); box.set_halign(Gtk.Align.START); box.append(img)
+    return box
+
+TILE_PX = [22, 26, 30]
+
 class SettingsWindow(Adw.ApplicationWindow):
     def __init__(self, app, pane=None):
         super().__init__(application=app, title='Sistem Ayarları', default_width=1000, default_height=700)
+        self.add_css_class('tahoe-settings')
+        self.nav = []; self.nav_i = -1; self._navlock = False
         self.toasts = Adw.ToastOverlay()
-        self.split = Adw.NavigationSplitView(); self.split.set_min_sidebar_width(250); self.split.set_max_sidebar_width(300)
+        self.split = Adw.NavigationSplitView(); self.split.set_min_sidebar_width(260); self.split.set_max_sidebar_width(310)
         self.toasts.set_child(self.split); self.set_content(self.toasts)
+        # ── yüzen kenar çubuğu adası ──
         sb = Adw.ToolbarView(); sh_ = Adw.HeaderBar(); sh_.set_show_title(False); sb.add_top_bar(sh_)
         no_native_controls(sh_); sh_.pack_start(traffic_lights(self))
-        self.search = Gtk.SearchEntry(placeholder_text='Ara', margin_start=10, margin_end=10, margin_bottom=6)
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL); box.append(self.search)
+        island = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, css_classes=['tahoe-island'], margin_start=10, margin_end=2, margin_bottom=10)
+        self.search = Gtk.SearchEntry(placeholder_text='Ara', margin_start=10, margin_end=10, margin_top=10, margin_bottom=6)
+        island.append(self.search)
+        # hesap satırı (Apple'daki "Apple Account" yerine yerel hesap)
+        user = os.environ.get('USER', '')
+        full = sh(f"getent passwd {user} | cut -d: -f5 | cut -d, -f1") or user
+        acc = Gtk.Button(css_classes=['flat', 'tahoe-account'], margin_start=6, margin_end=6)
+        ab = Gtk.Box(spacing=10, margin_top=4, margin_bottom=4)
+        ab.append(Gtk.Label(label=(full[:1] or '?').upper(), css_classes=['tahoe-avatar'], width_request=40, height_request=40, valign=Gtk.Align.CENTER))
+        tb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
+        tb.append(Gtk.Label(label=full, xalign=0, css_classes=['tahoe-account-name'])); tb.append(Gtk.Label(label='Yerel hesap', xalign=0, css_classes=['dim-label', 'caption']))
+        ab.append(tb); acc.set_child(ab); acc.connect('clicked', lambda *_: self.show_pane('users')); island.append(acc)
         self.lb = Gtk.ListBox(css_classes=['navigation-sidebar']); self.lb.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.idx = []
         for p in PANES:
@@ -1601,28 +1685,36 @@ class SettingsWindow(Adw.ApplicationWindow):
                 r = Gtk.ListBoxRow(selectable=False, activatable=False, height_request=14); r.add_css_class('tahoe-sep'); r.sep = True; r.name = ''; self.lb.append(r); self.idx.append(None); continue
             key, name, icon, fn = p
             r = Gtk.ListBoxRow(); r.sep = False; r.key = key; r.name = name
-            h = Gtk.Box(spacing=12, margin_top=7, margin_bottom=7, margin_start=8, margin_end=8)
-            r.img = Gtk.Image.new_from_icon_name(icon); r.img.set_pixel_size(SIDEBAR_PX[S['sidebar_icon']]); h.append(r.img); h.append(Gtk.Label(label=name, xalign=0)); r.set_child(h)
-            self.lb.append(r); self.idx.append(p)
-        sc = Gtk.ScrolledWindow(vexpand=True); sc.set_child(self.lb); box.append(sc); sb.set_content(box)
+            h = Gtk.Box(spacing=11, margin_top=4, margin_bottom=4, margin_start=6, margin_end=8)
+            r.tile = tile(icon, PANE_COLORS.get(key, 'gray'), TILE_PX[S['sidebar_icon']]); h.append(r.tile); h.append(Gtk.Label(label=name, xalign=0))
+            r.set_child(h); self.lb.append(r); self.idx.append(p)
+        sc = Gtk.ScrolledWindow(vexpand=True); sc.set_child(self.lb); island.append(sc); sb.set_content(island)
         self.split.set_sidebar(Adw.NavigationPage.new(sb, 'Sistem Ayarları'))
-        self.ctb = Adw.ToolbarView(); self.chead = Adw.HeaderBar(); self.ctitle = Adw.WindowTitle(title='', subtitle=''); self.chead.set_title_widget(self.ctitle)
-        no_native_controls(self.chead)
-        self.back = Gtk.Button(icon_name='go-previous-symbolic', css_classes=['flat'], visible=False, tooltip_text='Geri')
-        self.back.connect('clicked', lambda *_: self.pop()); self.chead.pack_start(self.back); self.hist = []
+        # ── içerik: ‹ › kapsülü + solda kalın başlık ──
+        self.ctb = Adw.ToolbarView(); self.chead = Adw.HeaderBar(); self.chead.set_title_widget(Gtk.Box()); no_native_controls(self.chead)
+        cap = Gtk.Box(css_classes=['tahoe-capsule'], valign=Gtk.Align.CENTER)
+        self.nback = Gtk.Button(icon_name='go-previous-symbolic', css_classes=['flat'], tooltip_text='Geri', sensitive=False)
+        self.nfwd = Gtk.Button(icon_name='go-next-symbolic', css_classes=['flat'], tooltip_text='İleri', sensitive=False)
+        self.nback.connect('clicked', lambda *_: self.go(-1)); self.nfwd.connect('clicked', lambda *_: self.go(1)); cap.append(self.nback); cap.append(self.nfwd)
+        self.chead.pack_start(cap)
+        self.ctitle = Gtk.Label(css_classes=['tahoe-title'], xalign=0); self.chead.pack_start(self.ctitle)
         self.ctb.add_top_bar(self.chead)
         self.cpage = Adw.NavigationPage.new(self.ctb, 'Ayarlar'); self.split.set_content(self.cpage)
         self.lb.connect('row-selected', self.on_row)
         self.search.connect('search-changed', lambda e: self.lb.invalidate_filter())
         self.lb.set_filter_func(self.filt)
-        self.show_pane(pane or 'wifi')
+        self.show_pane(pane or 'wifi'); GLib.idle_add(lambda: (self.lb.grab_focus(), False)[1])
+
+    def set_title_text(self, t):
+        self.ctitle.set_label(t); self.cpage.set_title(t)
 
     def set_sidebar_icons(self, i):
-        for p in self.idx:
-            pass
         row = self.lb.get_first_child()
         while row is not None:
-            if getattr(row, 'img', None) is not None: row.img.set_pixel_size(SIDEBAR_PX[i])
+            t = getattr(row, 'tile', None)
+            if t is not None:
+                t.set_size_request(TILE_PX[i], TILE_PX[i]); img = t.get_first_child()
+                if img is not None: img.set_pixel_size(max(10, int(TILE_PX[i] * 0.6)))
             row = row.get_next_sibling()
 
     def filt(self, row):
@@ -1634,37 +1726,45 @@ class SettingsWindow(Adw.ApplicationWindow):
         if row is None or row.sep: return
         self.build(row.key)
 
-    def push(self, title, widget):
-        """Alt sayfaya git (Apple'daki gibi: başlık değişir, solda geri düğmesi çıkar)."""
-        self.hist.append((self.ctitle.get_title(), self.ctb.get_content()))
-        self.ctitle.set_title(title); self.cpage.set_title(title); self.ctb.set_content(widget); self.back.set_visible(True)
+    # ── gezinme geçmişi (tarayıcı gibi: ‹ ›) ──
+    def record(self, key):
+        if self._navlock or (self.nav_i >= 0 and self.nav[self.nav_i] == key): return
+        self.nav = self.nav[:self.nav_i + 1] + [key]; self.nav_i = len(self.nav) - 1; self.update_nav()
 
-    def pop(self):
-        if not self.hist: return
-        title, w = self.hist.pop()
-        self.ctitle.set_title(title); self.cpage.set_title(title); self.ctb.set_content(w); self.back.set_visible(bool(self.hist))
+    def update_nav(self):
+        self.nback.set_sensitive(self.nav_i > 0); self.nfwd.set_sensitive(self.nav_i < len(self.nav) - 1)
+
+    def go(self, d):
+        i = self.nav_i + d
+        if 0 <= i < len(self.nav):
+            self.nav_i = i; self._navlock = True
+            try: self.show_pane(self.nav[i])
+            finally: self._navlock = False
+            self.update_nav()
+
+    def push(self, title, widget, key=None):
+        """Alt sayfaya git: başlık değişir, geçmişe yazılır."""
+        self.set_title_text(title); self.ctb.set_content(widget)
+        if key: self.record(key)
 
     def build(self, key):
-        self.hist = []; self.back.set_visible(False)
         for p in PANES:
             if p and p[0] == key:
-                self.ctitle.set_title(p[1]); self.cpage.set_title(p[1])
+                self.set_title_text(p[1])
                 try: w = p[3]()
                 except Exception as e:
                     w = Adw.StatusPage(title='Bu bölüm açılamadı', description=str(e))
-                self.ctb.set_content(w); self.split.set_show_content(True); return
+                self.ctb.set_content(w); self.split.set_show_content(True); self.record(key); return
 
     def show_pane(self, key):
-        sub = {'datetime': ('general', 'Tarih ve Saat', pane_datetime), 'lang': ('general', 'Dil ve Bölge', pane_lang), 'login': ('general', 'Giriş Öğeleri ve Uzantılar', pane_login),
-               'about': ('general', 'Hakkında', page_about), 'update': ('general', 'Yazılım Güncelleme', page_update), 'storage': ('general', 'Depolama', page_storage),
-               'a11y-vision': ('access', 'Görme', page_a11y_vision), 'a11y-hearing': ('access', 'İşitme', page_a11y_hearing), 'a11y-motor': ('access', 'Hareket', page_a11y_motor),
-               'a11y-speech': ('access', 'Konuşma', page_a11y_speech), 'a11y-general': ('access', 'Genel', page_a11y_general),
-               'corners': ('dock', 'Etkin Köşeler', page_hot_corners), 'shortcuts': ('keyboard', 'Klavye Kısayolları', page_shortcuts)}
-        if key in sub:                                  # alt sayfalar: önce üst sayfayı seç, sonra alt sayfayı aç
-            parent, title, fn = sub[key]; self.show_pane(parent); nav_push(title, fn); return
+        if key in SUBS:                                  # alt sayfalar: önce üst sayfayı seç, sonra alt sayfayı aç
+            parent, title, fn = SUBS[key]; self.show_pane(parent); nav_push(title, fn); return
         for i, p in enumerate(PANES):
             if p and p[0] == key:
-                self.lb.select_row(self.lb.get_row_at_index(i)); return
+                row = self.lb.get_row_at_index(i)
+                if self.lb.get_selected_row() is row: self.build(key)      # zaten seçiliyse yeniden kur (alt sayfadan dönüş)
+                else: self.lb.select_row(row)
+                return
 
 # ───────────────────────── Denetim Merkezi ─────────────────────────
 class PillSlider(Gtk.DrawingArea):
