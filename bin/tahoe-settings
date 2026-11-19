@@ -1038,7 +1038,7 @@ def cc_css():
     return f"""
 window.tahoe-cc-win {{ background: transparent; box-shadow: none; }}
 window.tahoe-catcher {{ background: rgba(0,0,0,0.01); box-shadow: none; }}
-.tahoe-cc-box {{ background-color: {panel}; color: {fg}; padding: 10px; border-radius: 18px; border: 1px solid rgba({ov},0.14); box-shadow: 0 14px 40px rgba(0,0,0,0.45); }}
+.tahoe-cc-box {{ background-color: {panel}; color: {fg}; padding: 10px; border-radius: 18px; border: 1px solid rgba({ov},0.14); box-shadow: none; }}   /* gölge pencere yüzeyinde (panelden büyük değil) kesilip köşelerde kare koyu yama yapıyordu */
 .cc-card {{ background-color: {card}; border-radius: 12px; padding: 10px; }}
 .cc-scard {{ padding: 8px 10px 7px 10px; }}
 button.cc-tilebtn {{ padding: 6px; }}
