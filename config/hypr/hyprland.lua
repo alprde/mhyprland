@@ -129,6 +129,8 @@ hl.animation({ leaf = "workspaces", enabled = true, speed = 5, bezier = "mac", s
 for _, ns in ipairs({ "waybar", "rofi", "swaync-control-center", "swaync-notification-window", "nwg-dock", "tahoe-cc", "tahoe-bar" }) do
   hl.layer_rule({ name = "blur-" .. ns, match = { namespace = ns }, blur = true, ignore_alpha = 0.2 })
 end
+-- Quickshell menüleri/ipuçları çubuğun popup'ı: decoration:blur:popups tutmadı, katman kuralındaki blur_popups çalışıyor (Hyprland 0.57)
+hl.layer_rule({ name = "blur-popups-tahoe-bar", match = { namespace = "tahoe-bar" }, blur_popups = true, ignore_alpha = 0.2 })
 
 -- Tahoe uygulamaları
 hl.window_rule({ name = "tahoe-settings", match = { class = "^org.tahoe.Settings$" }, float = true, size = "1000 700", center = true })

@@ -11,7 +11,7 @@ Singleton {
     property color fg: "#f5f5f7"
     property color accent: "#0a84ff"
     property color barBg: Qt.rgba(30 / 255, 30 / 255, 36 / 255, 0.55)
-    property real menuAlpha: 0.93                                          // cam görünümü: arkası Hyprland'de bulanıklaştırılır (blur_popups)
+    property real menuAlpha: 0.68                                          // cam görünümü: arkası Hyprland'de bulanıklaştırılır (blur_popups)
     property color menuBg: Qt.rgba(30 / 255, 30 / 255, 36 / 255, menuAlpha)
     property var ov: [1, 1, 1]                                            // yazı üstü katman rengi (koyuda beyaz, açıkta siyah)
     readonly property color fgDim: Qt.rgba(ov[0], ov[1], ov[2], 0.45)

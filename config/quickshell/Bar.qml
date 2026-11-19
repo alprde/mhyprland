@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Services.SystemTray
 import Quickshell.Services.UPower
@@ -27,6 +28,16 @@ PanelWindow {
         Qt.callLater(() => grab.active = true)
     }
     function closeMenus() { openMenu = ""; grab.active = false }
+
+    // Komut satırından menü aç/kapat (fareye dokunmadan, test ve kısayol için):  qs -c tahoe ipc call bar menu apple|app|close
+    IpcHandler {
+        enabled: bar.modelData === Quickshell.screens[0]
+        target: "bar"
+        function menu(name: string): void {
+            if (name === "close") bar.closeMenus()
+            else if (bar.openMenu !== name) bar.toggleMenu(name)
+        }
+    }
 
     HyprlandFocusGrab {
         id: grab
