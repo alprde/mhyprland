@@ -80,6 +80,10 @@ menuitem:hover, modelbutton:hover { background-color: @accent_bg_color; color: #
 /* Listeler, kenar çubuğu */
 .sidebar, placessidebar, .navigation-sidebar { background-color: @sidebar_bg_color; }
 row, list row, .navigation-sidebar row { border-radius: 8px; margin: 1px 6px; }
+/* Apple tarzı gruplu liste: satırlar 42 px, aralarında ince ayırıcı, kenar boşluğu yok */
+.boxed-list > row, .boxed-list > row.expander > box > list > row { min-height: 42px; margin: 0; border-radius: 0; }
+.boxed-list > row:not(:last-child) { border-bottom: 1px solid alpha(@window_fg_color, 0.08); }
+.boxed-list { overflow: hidden; }
 row:selected, row:selected:hover, .navigation-sidebar row:selected { background-color: @accent_bg_color; color: #fff; }
 list, listview { background-color: transparent; }
 .card, .boxed-list { background-color: @card_bg_color; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08); }
@@ -122,3 +126,9 @@ windowcontrols > button, headerbar windowcontrols > button.titlebutton { min-wid
 windowcontrols > button image { -gtk-icon-size: 0; min-width: 0; min-height: 0; opacity: 0; }
 windowcontrols > button:disabled { opacity: 1; }
 windowcontrols > button.minimize { background-color: #febc2e; }
+
+/* Seviye çubukları (pil, depolama): ince hap şeklinde, vurgu renginde dolgu */
+levelbar trough { background-color: alpha(@window_fg_color, 0.16); border-radius: 999px; min-height: 6px; padding: 0; border: none; }
+levelbar block { min-height: 6px; border-radius: 999px; border: none; }
+levelbar block.filled { background-color: @accent_bg_color; }
+levelbar block.empty { background-color: transparent; }

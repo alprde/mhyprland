@@ -49,7 +49,12 @@ PanelWindow {
     readonly property var gun: ["Pzr", "Pzt", "Sal", "Çar", "Prş", "Cum", "Cmt"]
     readonly property var ay: ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
     function pad(n) { return (n < 10 ? "0" : "") + n }
-    function trDate(d) { return gun[d.getDay()] + " " + d.getDate() + " " + ay[d.getMonth()] + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) }
+    function trDate(d) {
+        let h = d.getHours(), suffix = ""
+        if (!Theme.clockH24) { suffix = h >= 12 ? " ÖS" : " ÖÖ"; h = h % 12; if (h === 0) h = 12 }
+        const t = (Theme.clockH24 ? pad(h) : h) + ":" + pad(d.getMinutes()) + (Theme.clockSeconds ? ":" + pad(d.getSeconds()) : "") + suffix
+        return (Theme.clockDate ? gun[d.getDay()] + " " + d.getDate() + " " + ay[d.getMonth()] + " " : "") + t
+    }
 
     // ---------------- menü içerikleri ----------------
     function sq(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'" }
@@ -187,11 +192,15 @@ PanelWindow {
             readonly property var dev: UPower.displayDevice
             readonly property real pct: dev ? (dev.percentage <= 1 ? dev.percentage * 100 : dev.percentage) : 0
             readonly property bool charging: !!dev && (dev.state === UPowerDeviceState.Charging || dev.state === UPowerDeviceState.FullyCharged || dev.state === UPowerDeviceState.PendingCharge)
-            visible: !!dev && dev.isPresent
-            minW: 25
-            BatteryIcon { anchors.centerIn: parent; level: batt.pct; charging: batt.charging }
+            visible: Theme.showBattery && !!dev && dev.isPresent
+            minW: Theme.showBatteryPct ? 62 : 25
+            Row {
+                anchors.centerIn: parent; spacing: 5
+                Text { visible: Theme.showBatteryPct; anchors.verticalCenter: parent.verticalCenter; text: "%" + Math.round(batt.pct); color: Theme.fg; font.family: Theme.font; font.pixelSize: 13; font.weight: 500 }
+                BatteryIcon { anchors.verticalCenter: parent.verticalCenter; level: batt.pct; charging: batt.charging }
+            }
             tip: {
-                const p = Math.round(pct) + "%"
+                const p = "%" + Math.round(pct)
                 if (!dev) return ""
                 if (dev.state === UPowerDeviceState.FullyCharged || pct >= 99.5) return p + "  ·  Dolu"
                 if (dev.state === UPowerDeviceState.Charging) return p + "  ·  Şarj oluyor"
@@ -201,6 +210,7 @@ PanelWindow {
             onClicked: m => { if (m.button === Qt.RightButton) bar.run("tahoe-settings --pane battery"); else bar.run("tahoe-cc battery") }
         }
         BarButton {   // ağ
+            visible: Theme.showWifi
             text: Sys.netKind === "wifi" ? "" : (Sys.netKind === "wired" ? "" : "")
             family: Theme.nerd; pixelSize: 22; yOffset: -0.3
             tip: Sys.netKind === "wifi" ? Sys.netName + (Sys.netSignal >= 0 ? "  " + Sys.netSignal + "%" : "")
@@ -208,14 +218,17 @@ PanelWindow {
             onClicked: m => { if (m.button === Qt.RightButton) bar.run("tahoe-settings --pane wifi"); else bar.run("tahoe-cc wifi") }
         }
         BarButton {   // Denetim Merkezi
+            visible: Theme.showControl
             text: ""; family: Theme.icons; pixelSize: 22; yOffset: -0.8; tip: "Denetim Merkezi"
             onClicked: bar.run("tahoe-cc control")
         }
         BarButton {   // Spotlight
+            visible: Theme.showSpotlight
             text: ""; family: Theme.nerd; pixelSize: 20; yOffset: 0.1; tip: "Spotlight Araması"
             onClicked: bar.run("rofi -show drun")
         }
         BarButton {   // saat
+            visible: Theme.showClock
             SystemClock { id: clock; precision: SystemClock.Minutes }
             text: trDate(clock.date); weight: 600; yOffset: -1
             onClicked: bar.run("swaync-client -t -sw")

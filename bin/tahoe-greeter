@@ -6,7 +6,7 @@ greetd protokolü: UNIX soketi ($GREETD_SOCK), her mesaj = 4 bayt (yerel sıra) 
 Ayar: /etc/greetd/tahoe-greeter.conf  ([greeter] user=, session=, background=, lang=)
 """
 import configparser, datetime, json, os, re, shlex, shutil, socket, struct, sys, threading
-os.environ.setdefault('GSK_RENDERER', 'ngl')   # dGPU'yu uyandırma (bkz. tahoe-settings)
+os.environ.setdefault('GSK_RENDERER', 'gl')   # dGPU'yu uyandırma (bkz. tahoe-settings)
 import gi
 gi.require_version('Gtk', '4.0'); gi.require_version('Gdk', '4.0')
 from gi.repository import Gtk, Gdk, GLib

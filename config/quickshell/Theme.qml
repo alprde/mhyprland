@@ -13,6 +13,15 @@ Singleton {
     property color barBg: Qt.rgba(30 / 255, 30 / 255, 36 / 255, 0.55)
     property real menuAlpha: 0.68                                          // cam görünümü: arkası Hyprland'de bulanıklaştırılır (blur_popups)
     property color menuBg: Qt.rgba(30 / 255, 30 / 255, 36 / 255, menuAlpha)
+    property bool clockH24: true
+    property bool clockSeconds: false
+    property bool clockDate: true
+    property bool showWifi: true
+    property bool showBattery: true
+    property bool showBatteryPct: false
+    property bool showSpotlight: true
+    property bool showControl: true
+    property bool showClock: true
     property var ov: [1, 1, 1]                                            // yazı üstü katman rengi (koyuda beyaz, açıkta siyah)
     readonly property color fgDim: Qt.rgba(ov[0], ov[1], ov[2], 0.45)
     readonly property color hover: Qt.rgba(ov[0], ov[1], ov[2], 0.14)
@@ -40,6 +49,10 @@ Singleton {
                 if (j.fg) root.fg = j.fg
                 if (j.accent) root.accent = j.accent
                 if (j.ov) root.ov = j.ov.split(",").map(x => parseInt(x) / 255)
+                const c = j.clock || {}, b = j.bar || {}
+                root.clockH24 = c.h24 !== false; root.clockSeconds = c.seconds === true; root.clockDate = c.date !== false
+                root.showWifi = b.wifi !== false; root.showBattery = b.battery !== false; root.showBatteryPct = b.battery_percent === true
+                root.showSpotlight = b.spotlight !== false; root.showControl = b.control !== false; root.showClock = b.clock !== false
                 root.barBg = root.rgba(j.panel, root.barBg)
                 const t = root.rgba(j.tip, root.menuBg)
                 root.menuBg = Qt.rgba(t.r, t.g, t.b, root.menuAlpha)
