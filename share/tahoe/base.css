@@ -218,3 +218,29 @@ window.tahoe-settings scale slider { min-width: 16px; min-height: 16px; backgrou
 /* sayısal alanlar (SpinRow): iri gri kutu yerine düz değer + küçük − + düğmeleri */
 window.tahoe-settings row.spin spinbutton, window.tahoe-settings row.spin spinbutton text, window.tahoe-settings row.spin spinbutton > text { background: transparent; box-shadow: none; border: none; outline: none; }
 window.tahoe-settings row.spin spinbutton > button { min-width: 28px; min-height: 24px; padding: 0; border-radius: 8px; }
+
+
+/* ───────── Açılır menüler (ComboRow/popover): Apple'daki gibi yuvarlak, dolgulu, sade ───────── */
+popover.background, popover.background.menu { background: transparent; background-color: transparent; box-shadow: none; border: none; }
+popover.background > contents, popover > contents { background-color: @tahoe_island; color: @window_fg_color; border-radius: 12px; padding: 5px;
+  border: 1px solid alpha(@window_fg_color, 0.10); box-shadow: 0 8px 28px rgba(0,0,0,0.30); }
+popover listview, popover list, popover scrolledwindow, popover viewport { background: transparent; background-color: transparent; }
+popover listview > row, popover row, popover modelbutton { padding: 3px 10px; min-height: 22px; margin: 0; border-radius: 6px; background: transparent; background-image: none; color: @window_fg_color; }
+popover listview > row:hover, popover row:hover, popover modelbutton:hover { background-color: @accent_bg_color; color: #ffffff; }
+popover listview > row:focus:not(:hover), popover row:focus:not(:hover) { background-color: transparent; outline: none; }
+popover listview > row:selected, popover row:selected { background-color: transparent; color: @window_fg_color; }
+popover listview > row:selected:hover { background-color: @accent_bg_color; color: #ffffff; }
+popover listview > row image.checkmark, popover row image.checkmark { margin-left: 10px; min-width: 14px; }
+
+
+/* ───────── İletişim kutuları (AlertDialog / Dialog): opak zemin, yuvarlak köşe, gölge, karartma ───────── */
+floating-sheet dimming { background-color: rgba(0,0,0,0.32); }
+floating-sheet sheet.background, floating-sheet > sheet { background-color: @tahoe_island; background-image: none; color: @window_fg_color; border-radius: 16px;
+  border: 1px solid alpha(@window_fg_color, 0.10); box-shadow: 0 14px 44px rgba(0,0,0,0.42); }
+floating-sheet sheet headerbar { background: transparent; box-shadow: none; border: none; min-height: 48px; }
+floating-sheet sheet .heading, floating-sheet sheet label.title-2 { font-weight: 700; }
+floating-sheet .message-area { padding: 22px 24px 14px 24px; }
+floating-sheet .message-area .title-2 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+floating-sheet .message-area .body { font-size: 12.5px; opacity: 0.75; }
+floating-sheet .response-area { padding: 2px 16px 16px 16px; }
+floating-sheet .response-area > button { margin: 0 4px; min-height: 28px; border-radius: 9px; }

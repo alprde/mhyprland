@@ -505,7 +505,9 @@ def conn_details(title, conn, dev, wifi=False):
     g5.add(r_button('Değişiklikleri uygula', 'Uygula', apply, None, 'suggested-action'))
     if wifi: g5.add(r_button('Bu ağı unut', 'Unut', lambda: (bg_run(f"nmcli con delete id '{q(conn)}'"), toast('Ağ unutuldu'), d.close()), None, 'destructive-action'))
     page.add(g5)
-    tv = Adw.ToolbarView(); tv.add_top_bar(Adw.HeaderBar()); tv.set_content(page); d.set_child(tv)
+    hb = Adw.HeaderBar(); hb.set_show_end_title_buttons(False); hb.set_show_start_title_buttons(False)
+    cl = Gtk.Button(label='Kapat', css_classes=['flat']); cl.connect('clicked', lambda *_: d.close()); hb.pack_end(cl)
+    tv = Adw.ToolbarView(); tv.add_top_bar(hb); tv.set_content(page); d.set_child(tv)
     d.present(APP.props.active_window)
 
 def pane_wifi():
