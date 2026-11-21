@@ -85,7 +85,7 @@ fi
 # ───────────────────────── packages ─────────────────────────
 PKGS=(
   hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpaper hyprlock hypridle hyprpolkitagent hyprshot hyprsunset
-  kitty quickshell waybar rofi swaync nwg-dock-hyprland grim slurp satty swappy wl-clipboard cliphist brightnessctl playerctl jq
+  kitty quickshell waybar rofi swaync nwg-dock-hyprland grim slurp swappy wl-clipboard cliphist brightnessctl playerctl jq
   pipewire pipewire-pulse wireplumber pavucontrol networkmanager nm-connection-editor bluez bluez-utils power-profiles-daemon
   dbus gtk4-layer-shell python-fonttools python python-gobject python-cairo python-numpy python-pillow gtk4 libadwaita
   inter-font ttf-jetbrains-mono-nerd otf-font-awesome capitaine-cursors breeze-icons adwaita-icon-theme upower hwdata
