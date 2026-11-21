@@ -88,6 +88,7 @@ hl.bind(mod .. " + ALT + 0", hl.dsp.exec_cmd(P .. "tahoe-zoom reset"))      -- �
 hl.bind(mod .. " + ALT + Escape", hl.dsp.exec_cmd(P .. "tahoe-forcequit"))
 hl.bind(mod .. " + ALT + S", hl.dsp.exec_cmd("sh -c 'D=\"$(xdg-user-dir PICTURES)/Ekran Görüntüleri\"; mkdir -p \"$D\"; HYPRSHOT_DIR=\"$D\" hyprshot -m output'"))   -- Super+Alt+S: tüm ekran: dosyaya kaydeder + panoya kopyalar
 hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd(P .. "tahoe-shot"))   -- Super+Shift+S: alan seç → Satty düzenleyicisi (Xnip gibi); Enter = kopyala + kaydet
+hl.bind(mod .. " + CTRL + S", hl.dsp.exec_cmd(P .. "tahoe-shot-swappy"))   -- Super+Ctrl+S: alan seç → Swappy düzenleyicisi (alternatif)
 hl.bind(mod .. " + F",      hl.dsp.window.fullscreen())
 hl.bind(mod .. " + M",      hl.dsp.window.move({ workspace = "special:minimized" }))   -- küçült
 hl.bind(mod .. " + SHIFT + M", hl.dsp.workspace.toggle_special("minimized"))        -- küçültülenleri göster/gizle
