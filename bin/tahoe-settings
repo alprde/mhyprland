@@ -116,8 +116,8 @@ def gtk_css(dark, accent):
                      ('rgba(46, 46, 54, 0.85)', 'rgba(255, 255, 255, 0.88)'), ('rgba(40, 40, 48, 0.80)', 'rgba(235, 235, 240, 0.85)'),
                      ('rgba(44, 44, 52, 0.92)', 'rgba(250, 250, 252, 0.95)'), ('rgba(40, 40, 46, 0.90)', 'rgba(248, 248, 250, 0.94)'),
                      ('rgba(30,30,36,0.92)', 'rgba(250,250,252,0.95)'), ('#f5f5f7', '#1d1d1f'), ('rgba(255,255,255,', 'rgba(0,0,0,'),
-                     ('@define-color tahoe_win #1e1e20', '@define-color tahoe_win #ffffff'), ('@define-color tahoe_island #2a2a2d', '@define-color tahoe_island #f2f2f5'),
-                     ('@define-color tahoe_card #2d2d31', '@define-color tahoe_card #f2f2f4'), ('@define-color tahoe_capsule #36363b', '@define-color tahoe_capsule #ffffff')]:
+                     ('@define-color tahoe_win #1e1e20', '@define-color tahoe_win #ffffff'), ('@define-color tahoe_island #2a2a2d', '@define-color tahoe_island #f9f9f9'),
+                     ('@define-color tahoe_card #2d2d31', '@define-color tahoe_card #f7f7f7'), ('@define-color tahoe_capsule #36363b', '@define-color tahoe_capsule #ffffff')]:
             css = css.replace(a, b)
         # kaydırıcı/anahtar topuzları ve onay kutusu içi beyaz kalsın
         css = css.replace('switch slider { border-radius: 50%; background-color: #fff;', 'switch slider { border-radius: 50%; background-color: #fff;')
@@ -358,7 +358,7 @@ def write_clock():
 # ───────────────────────── widget yardımcıları ─────────────────────────
 def grp(title=None, desc=None):
     g = Adw.PreferencesGroup()
-    if title: g.set_title(title)
+    if title: g.set_title(title); g.set_margin_top(33)
     if desc: g.set_description(desc)
     return g
 
@@ -369,8 +369,18 @@ def r_switch(title, active, cb, sub=None):
     r.connect('notify::active', lambda w, _: cb(w.get_active()))
     return r
 
+def _find_arrow(w):
+    while w is not None:
+        if isinstance(w, Gtk.Image) and w.get_icon_name() == 'pan-down-symbolic': return w
+        r = _find_arrow(w.get_first_child())
+        if r is not None: return r
+        w = w.get_next_sibling()
+    return None
+
 def r_combo(title, items, idx, cb, sub=None):
     r = Adw.ComboRow(title=title)
+    ar = _find_arrow(r.get_first_child())
+    if ar is not None: ar.set_from_icon_name('tahoe-updown-symbolic'); ar.set_pixel_size(13); ar.add_css_class('tahoe-updown')
     if sub: r.set_subtitle(sub)
     r.set_model(Gtk.StringList.new(list(items)))
     r.set_selected(max(0, idx))
@@ -413,8 +423,10 @@ def r_spin(title, lo, hi, step, val, cb, sub=None):
     return r
 
 def new_page(*groups):
-    p = Adw.PreferencesPage()
-    for g in groups: p.add(g)
+    p = Adw.PreferencesPage(); p.set_margin_start(9); p.set_margin_end(9)
+    for k, g in enumerate(groups):
+        if k == 0: g.set_margin_top(0)      # ilk grup sayfanın tepesinden başlar (Apple gibi)
+        p.add(g)
     return p
 
 def toast(msg):
@@ -819,15 +831,22 @@ def draw_preview(cr, w, h, kind):
         cr.set_source_rgba(*((1, 1, 1, 0.55) if kind == 'clear' else (0.40, 0.58, 1.0, 0.80))); cr.fill_preserve()
         cr.set_source_rgba(1, 1, 1, 0.85); cr.set_line_width(1.2); cr.stroke()
 
+def top_row(title, sub, right):
+    """Apple'daki gibi: başlık (ve alt metin) solda ÜSTTE, denetimler sağda; satırın iç boşluğu ~11 px."""
+    r = Adw.PreferencesRow(activatable=False)
+    box = Gtk.Box(spacing=12, margin_start=9, margin_end=9, margin_top=11, margin_bottom=9)
+    left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True, valign=Gtk.Align.START)
+    left.append(Gtk.Label(label=title, xalign=0, css_classes=['tahoe-rowtitle']))
+    if sub: left.append(Gtk.Label(label=sub, xalign=0, wrap=True, max_width_chars=28, css_classes=['dim-label', 'tahoe-rowsub']))
+    right.set_valign(Gtk.Align.START); box.append(left); box.append(right); r.set_child(box)
+    return r
+
 def choice_row(title, sub, opts, current, cb):
-    """Başlık solda, sağda önizleme karoları (seçili olanın çerçevesi vurgu renginde, etiketi kalın)."""
-    r = Adw.ActionRow(title=title)
-    if sub: r.set_subtitle(sub)
-    box = Gtk.Box(spacing=14, valign=Gtk.Align.CENTER, margin_top=10, margin_bottom=10)
-    labels = []; first = None
+    """Başlık solda üstte, sağda önizleme karoları (seçili olanın çerçevesi vurgu renginde, etiketi kalın)."""
+    box = Gtk.Box(spacing=12); labels = []; first = None
     for key, label, kind in opts:
-        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, halign=Gtk.Align.CENTER)
-        btn = Gtk.ToggleButton(css_classes=['tahoe-choice']); da = Gtk.DrawingArea(content_width=84, content_height=56)
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5, halign=Gtk.Align.CENTER)
+        btn = Gtk.ToggleButton(css_classes=['tahoe-choice']); da = Gtk.DrawingArea(content_width=70, content_height=43)
         da.set_draw_func(lambda a, cr, w, h, k=kind: draw_preview(cr, w, h, k)); btn.set_child(da)
         if first: btn.set_group(first)
         else: first = btn
@@ -838,53 +857,49 @@ def choice_row(title, sub, opts, current, cb):
                 for x in labels: x.remove_css_class('sel')
                 l.add_css_class('sel'); cb(k)
         btn.connect('toggled', on); col.append(btn); col.append(lb); box.append(col)
-    r.add_suffix(box)
-    return r
+    return top_row(title, sub, box)
 
-def pane_appearance():
-    import datetime
-    modes = ['light', 'dark', 'auto']
-    g = grp('Görünüm')
-    cur = S.get('appearance_mode', 'dark' if S['dark'] else 'light')
-    rise, sset = sun_times()
-    g.add(choice_row('Görünüm', f'Otomatik: gün doğumunda ({rise:%H:%M}) açık, batımında ({sset:%H:%M}) koyu',
-                     [('auto', 'Otomatik', 'auto'), ('light', 'Açık', 'light'), ('dark', 'Koyu', 'dark')], cur if cur in modes else 'dark', set_appearance_mode))
-    g_glass = grp()
-    def set_glass(k): S['glass'] = k; save(); bg(apply_theme); schedule_apply()
-    g_glass.add(choice_row('Liquid Glass', 'Cam görünümünü seçin', [('clear', 'Şeffaf', 'clear'), ('tinted', 'Renkli', 'tinted')], S.get('glass', 'clear'), set_glass))
-    g_glass.add(r_switch('Bulanıklık efekti', S['look']['blur'], lambda v: (S['look'].__setitem__('blur', v), schedule_apply()), 'Pencerelerin ve menülerin arkasını bulanıklaştırır'))
-    g2 = grp('Renk')
-    box = Gtk.Box(spacing=10, halign=Gtk.Align.CENTER, margin_top=12, margin_bottom=12)
-    first = None
+def accent_row():
+    box = Gtk.Box(spacing=11); first = None
     for name, col in ACCENTS:
-        b = Gtk.ToggleButton(tooltip_text=name); b.set_size_request(30, 30)
-        pv = Gtk.CssProvider(); pv.load_from_data(f'button {{ background: {col}; border-radius: 999px; min-width: 24px; min-height: 24px; padding: 0; border: 3px solid transparent; }} button:checked {{ border-color: rgba(255,255,255,0.9); }}'.encode())
+        b = Gtk.ToggleButton(tooltip_text=name, css_classes=['tahoe-dot']); b.set_size_request(28, 28)
+        pv = Gtk.CssProvider(); pv.load_from_data(f'button {{ background: {col}; border-radius: 999px; min-width: 20px; min-height: 20px; padding: 0; border: 3px solid transparent; background-clip: padding-box; box-shadow: none; }} button:checked {{ border-color: alpha(#ffffff, 0.95); box-shadow: 0 0 0 2px {col}; }}'.encode())
         b.get_style_context().add_provider(pv, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         if first: b.set_group(first)
         else: first = b
         b.set_active(col == S['accent'])
         b.connect('toggled', lambda w, c=col: w.get_active() and (S.__setitem__('accent', c), save(), bg(apply_theme)))
         box.append(b)
-    prow = Adw.PreferencesRow(); prow.set_child(box); g2.add(prow)
+    return top_row('Renk', None, box)
+
+def pane_appearance():
+    modes = ['light', 'dark', 'auto']
+    g_main = grp()
+    cur = S.get('appearance_mode', 'dark' if S['dark'] else 'light')
+    g_main.add(choice_row('Görünüm', None, [('auto', 'Otomatik', 'auto'), ('light', 'Açık', 'light'), ('dark', 'Koyu', 'dark')], cur if cur in modes else 'dark', set_appearance_mode))
+    def set_glass(k): S['glass'] = k; save(); bg(apply_theme); schedule_apply()
+    g_main.add(choice_row('Liquid Glass', 'Liquid Glass için tercih ettiğiniz görünümü seçin.', [('clear', 'Şeffaf', 'clear'), ('tinted', 'Renkli', 'tinted')], S.get('glass', 'clear'), set_glass))
+    g_theme = grp('Tema')
+    g_theme.add(accent_row())
     hk = [k for k, _ in HL_COLORS]
-    g2.add(r_combo('Metin vurgu rengi', [n for _, n in HL_COLORS], hk.index(S.get('highlight', 'accent')) if S.get('highlight', 'accent') in hk else 0,
-                   lambda i: (S.__setitem__('highlight', hk[i]), save(), bg(apply_theme)), 'Seçili metnin arka plan rengi'))
-    g3 = grp()
+    g_theme.add(r_combo('Metin vurgu rengi', [n for _, n in HL_COLORS], hk.index(S.get('highlight', 'accent')) if S.get('highlight', 'accent') in hk else 0,
+                        lambda i: (S.__setitem__('highlight', hk[i]), save(), bg(apply_theme))))
+    g_win = grp('Pencereler')
     def set_side(i):
         S['sidebar_icon'] = i; save(); w = APP.props.active_window
         if w is not None and hasattr(w, 'set_sidebar_icons'): w.set_sidebar_icons(i)
-    g3.add(r_combo('Kenar çubuğu simge boyutu', ['Küçük', 'Orta', 'Büyük'], S['sidebar_icon'], set_side))
+    g_win.add(r_combo('Kenar çubuğu simge boyutu', ['Küçük', 'Orta', 'Büyük'], S['sidebar_icon'], set_side))
+    g_win.add(r_switch('Bulanıklık efekti', S['look']['blur'], lambda v: (S['look'].__setitem__('blur', v), schedule_apply())))
+    g_win.add(r_scale('Köşe yuvarlaklığı', 0, 28, 1, S['look']['rounding'], lambda v: (S['look'].__setitem__('rounding', int(v)), schedule_apply())))
+    g_win.add(r_scale('Pasif pencere saydamlığı', 0.6, 1.0, 0.02, S['look']['opacity'], lambda v: (S['look'].__setitem__('opacity', round(v, 2)), schedule_apply()), digits=2))
     sb = ['auto', 'scroll', 'always']
     def set_sb(i):
         S['scrollbars'] = sb[i]; save(); set_ini('gtk-overlay-scrolling', 'false' if sb[i] == 'always' else 'true')
-    g3.add(r_combo('Kaydırma çubuklarını göster', ['Fare veya iz panosuna göre otomatik', 'Kaydırırken', 'Her zaman'], sb.index(S.get('scrollbars', 'auto')), set_sb, 'Uygulamalar yeniden açılınca geçerli olur'))
+    g_win.add(r_combo('Kaydırma çubuklarını göster', ['Otomatik', 'Kaydırırken', 'Her zaman'], sb.index(S.get('scrollbars', 'auto')), set_sb))
     sc = ['jump', 'page']
     def set_sc(i): S['scroll_click'] = sc[i]; save(); set_ini('gtk-primary-button-warps-slider', 'true' if sc[i] == 'jump' else 'false')
-    g3.add(r_combo('Kaydırma çubuğunda tıklanınca', ['Tıklanan noktaya atla', 'Sonraki sayfaya atla'], sc.index(S.get('scroll_click', 'jump')), set_sc))
-    g4 = grp('Pencereler')
-    g4.add(r_scale('Köşe yuvarlaklığı', 0, 28, 1, S['look']['rounding'], lambda v: (S['look'].__setitem__('rounding', int(v)), schedule_apply())))
-    g4.add(r_scale('Arka plandaki pencerelerin saydamlığı', 0.6, 1.0, 0.02, S['look']['opacity'], lambda v: (S['look'].__setitem__('opacity', round(v, 2)), schedule_apply()), digits=2))
-    return new_page(g, g_glass, g2, g3, g4)
+    g_win.add(r_combo('Kaydırma çubuğunda tıklanınca', ['Tıklanan noktaya atla', 'Sonraki sayfaya atla'], sc.index(S.get('scroll_click', 'jump')), set_sc))
+    return new_page(g_main, g_theme, g_win)
 
 def sink_balance():
     nums = re.findall(r'(\d+)%', sh('pactl get-sink-volume @DEFAULT_SINK@'))
@@ -1024,11 +1039,12 @@ def pane_displays():
     for m in mons: mon_cfg(m)
     byname = {m['name']: m for m in mons}
     if SEL_MON[0] not in byname: SEL_MON[0] = 'eDP-1' if 'eDP-1' in byname else mons[0]['name']
-    page = Adw.PreferencesPage()
+    page = Adw.PreferencesPage(); page.set_margin_start(9); page.set_margin_end(9)
     holder = {'group': None}
 
     # ── Düzen tuvali: macOS'taki sürüklenebilir ekran küçük resimleri ──
     cg = grp('Ekran düzeni', 'Ekranları sürükleyerek konumlarını değiştirin. Ayarlarını görmek için bir ekrana tıklayın.' if len(mons) > 1 else None)
+    cg.set_margin_top(0)
     da = Gtk.DrawingArea(); da.set_content_height(210); da.set_hexpand(True)
     state = {'rects': {}, 'drag': None, 'scale': 0.05, 'origin': (0, 0), 'start': (0, 0)}
 
@@ -1479,7 +1495,7 @@ def pane_keyboard():
     g.add(r_spin('Tuş tekrarlama hızı', 5, 60, 1, i['repeat_rate'], lambda v: (i.__setitem__('repeat_rate', int(v)), schedule_apply())))
     g.add(r_spin('Tekrarlamaya kadar gecikme (ms)', 150, 1500, 50, i['repeat_delay'], lambda v: (i.__setitem__('repeat_delay', int(v)), schedule_apply())))
     g.add(nav_row('Klavye Kısayolları…', 'preferences-desktop-keyboard-shortcuts-symbolic', page_shortcuts))
-    g2 = grp('Giriş Kaynakları', 'Birden fazlası açıksa aşağıdaki kısayolla aralarında geçiş yapılır')
+    g2 = grp('Giriş Kaynakları')
     cur = list(i.get('kb_layouts') or [i['kb_layout']])
     rows = {}
     def toggle(code, on):
@@ -1573,9 +1589,9 @@ PANES = [
 # ───────────────────────── macOS trafik ışıkları ─────────────────────────
 TL_CSS = b"""
 .tl-box { margin: 0 4px 0 8px; }
-button.tl { min-width: 12px; min-height: 12px; padding: 0; margin: 0; border-radius: 999px; box-shadow: none; background-image: none;
+button.tl { min-width: 16px; min-height: 16px; padding: 0; margin: 0; border-radius: 999px; box-shadow: none; background-image: none;
             border: 1px solid rgba(0,0,0,0.14); }
-button.tl label { font-size: 9px; font-weight: 800; color: rgba(0,0,0,0.55); opacity: 0; }
+button.tl label { font-size: 11px; font-weight: 800; color: rgba(0,0,0,0.55); opacity: 0; }
 .tl-box:hover button.tl label { opacity: 1; }
 button.tl-close { background-color: #ff5f57; } button.tl-close:hover { background-color: #ff5f57; }
 button.tl-min   { background-color: #febc2e; } button.tl-min:hover   { background-color: #febc2e; }
@@ -1620,7 +1636,7 @@ button.cc-media:hover {{ background-color: rgba({ov},0.12); }}
 """.encode()
 
 def traffic_lights(win):
-    box = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER); box.add_css_class('tl-box')
+    box = Gtk.Box(spacing=9, valign=Gtk.Align.CENTER); box.add_css_class('tl-box')
     def mk(cls, glyph, cb):
         b = Gtk.Button(); b.add_css_class('tl'); b.add_css_class(cls); b.set_focusable(False)
         b.set_child(Gtk.Label(label=glyph)); b.connect('clicked', lambda *_: cb()); box.append(b)
@@ -1655,7 +1671,7 @@ def tile(icon, color, px):
     img.set_halign(Gtk.Align.CENTER); img.set_valign(Gtk.Align.CENTER); box.set_halign(Gtk.Align.START); box.append(img)
     return box
 
-TILE_PX = [20, 22, 26]
+TILE_PX = [19, 21, 24]
 
 class SettingsWindow(Adw.ApplicationWindow):
     def __init__(self, app, pane=None):
@@ -1663,20 +1679,20 @@ class SettingsWindow(Adw.ApplicationWindow):
         self.add_css_class('tahoe-settings')
         self.nav = []; self.nav_i = -1; self._navlock = False
         self.toasts = Adw.ToastOverlay()
-        self.split = Adw.NavigationSplitView(); self.split.set_min_sidebar_width(232); self.split.set_max_sidebar_width(250)
+        self.split = Adw.NavigationSplitView(); self.split.set_min_sidebar_width(242); self.split.set_max_sidebar_width(250)
         self.toasts.set_child(self.split); self.set_content(self.toasts)
         # ── yüzen kenar çubuğu adası ──
-        sb = Adw.ToolbarView(); sh_ = Adw.HeaderBar(); sh_.set_show_title(False); sb.add_top_bar(sh_)
-        no_native_controls(sh_); sh_.pack_start(traffic_lights(self))
-        island = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, css_classes=['tahoe-island'], margin_start=10, margin_end=2, margin_bottom=10)
-        self.search = Gtk.SearchEntry(placeholder_text='Ara', margin_start=10, margin_end=10, margin_top=10, margin_bottom=6)
+        sb = Adw.ToolbarView()
+        island = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, css_classes=['tahoe-island'], margin_start=8, margin_end=2, margin_top=8, margin_bottom=8)
+        wh = Gtk.WindowHandle(); tlb = Gtk.Box(margin_start=14, margin_top=12, margin_bottom=29); tlb.append(traffic_lights(self)); wh.set_child(tlb); island.append(wh)
+        self.search = Gtk.SearchEntry(placeholder_text='Ara', margin_start=12, margin_end=10, margin_top=0, margin_bottom=6)
         island.append(self.search)
         # hesap satırı (Apple'daki "Apple Account" yerine yerel hesap)
         user = os.environ.get('USER', '')
         full = sh(f"getent passwd {user} | cut -d: -f5 | cut -d, -f1") or user
-        acc = Gtk.Button(css_classes=['flat', 'tahoe-account'], margin_start=6, margin_end=6)
-        ab = Gtk.Box(spacing=10, margin_top=4, margin_bottom=4)
-        ab.append(Gtk.Label(label=(full[:1] or '?').upper(), css_classes=['tahoe-avatar'], width_request=38, height_request=38, valign=Gtk.Align.CENTER))
+        acc = Gtk.Button(css_classes=['flat', 'tahoe-account'], margin_start=7, margin_end=7)
+        ab = Gtk.Box(spacing=10, margin_top=2, margin_bottom=6)
+        ab.append(Gtk.Label(label=(full[:1] or '?').upper(), css_classes=['tahoe-avatar'], width_request=40, height_request=40, valign=Gtk.Align.CENTER))
         tb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
         tb.append(Gtk.Label(label=full, xalign=0, css_classes=['tahoe-account-name'])); tb.append(Gtk.Label(label='Yerel hesap', xalign=0, css_classes=['dim-label', 'caption']))
         ab.append(tb); acc.set_child(ab); acc.connect('clicked', lambda *_: self.show_pane('users')); island.append(acc)
@@ -1687,7 +1703,7 @@ class SettingsWindow(Adw.ApplicationWindow):
                 r = Gtk.ListBoxRow(selectable=False, activatable=False, height_request=14); r.add_css_class('tahoe-sep'); r.sep = True; r.name = ''; self.lb.append(r); self.idx.append(None); continue
             key, name, icon, fn = p
             r = Gtk.ListBoxRow(); r.sep = False; r.key = key; r.name = name
-            h = Gtk.Box(spacing=10, margin_top=3, margin_bottom=3, margin_start=4, margin_end=6)
+            h = Gtk.Box(spacing=7, margin_top=3, margin_bottom=3, margin_start=3, margin_end=6)
             r.tile = tile(icon, PANE_COLORS.get(key, 'gray'), TILE_PX[S['sidebar_icon']]); h.append(r.tile); h.append(Gtk.Label(label=name, xalign=0))
             r.set_child(h); self.lb.append(r); self.idx.append(p)
         sc = Gtk.ScrolledWindow(vexpand=True); sc.set_child(self.lb); island.append(sc); sb.set_content(island)
@@ -1695,10 +1711,10 @@ class SettingsWindow(Adw.ApplicationWindow):
         # ── içerik: ‹ › kapsülü + solda kalın başlık ──
         self.ctb = Adw.ToolbarView(); self.chead = Adw.HeaderBar(); self.chead.set_title_widget(Gtk.Box()); no_native_controls(self.chead)
         cap = Gtk.Box(css_classes=['tahoe-capsule'], valign=Gtk.Align.CENTER)
-        self.nback = Gtk.Button(icon_name='go-previous-symbolic', css_classes=['flat'], tooltip_text='Geri', sensitive=False)
-        self.nfwd = Gtk.Button(icon_name='go-next-symbolic', css_classes=['flat'], tooltip_text='İleri', sensitive=False)
+        self.nback = Gtk.Button(icon_name='go-previous-symbolic', css_classes=['flat'], tooltip_text='Geri', sensitive=False, valign=Gtk.Align.CENTER)
+        self.nfwd = Gtk.Button(icon_name='go-next-symbolic', css_classes=['flat'], tooltip_text='İleri', sensitive=False, valign=Gtk.Align.CENTER)
         self.nback.connect('clicked', lambda *_: self.go(-1)); self.nfwd.connect('clicked', lambda *_: self.go(1)); cap.append(self.nback); cap.append(self.nfwd)
-        self.chead.pack_start(cap)
+        cap.set_size_request(74, 38); self.nback.set_size_request(34, 30); self.nfwd.set_size_request(34, 30); self.chead.pack_start(cap)
         self.ctitle = Gtk.Label(css_classes=['tahoe-title'], xalign=0); self.chead.pack_start(self.ctitle)
         self.ctb.add_top_bar(self.chead)
         self.cpage = Adw.NavigationPage.new(self.ctb, 'Ayarlar'); self.split.set_content(self.cpage)

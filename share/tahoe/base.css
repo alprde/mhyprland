@@ -133,31 +133,31 @@ levelbar block { min-height: 6px; border-radius: 999px; border: none; }
 levelbar block.filled { background-color: @accent_bg_color; }
 levelbar block.empty { background-color: transparent; }
 
-/* ───────── Sistem Ayarları: macOS Tahoe tasarımı (Apple'ın Görünüm sayfası görüntüsüyle ölçülerek) ─────────
-   Oranlar Apple'ın 1144 px'lik pencere görüntüsünden: kenar çubuğu ≈ %30, kenar çubuğu satırı ≈ genişliğin %4.4'ü,
-   içerik satırı ≈ %5.2, kart yarıçapı ≈ %1.8. Pencere 780 px → satır 34/40 px, yazı 14 px. */
+/* ───────── Sistem Ayarları: macOS Tahoe tasarımı — ölçüler Apple'ın pencere görüntüsünden (1250 px'e ölçeklenmiş,
+   1 mantıksal px = 1,6 görüntü px): kart ↔ pencere kenarı 22, kart yarıçapı 16, satır iç boşluğu 11, ayırıcı kenarlardan 11 içeride,
+   gövde yazısı 13, alt metin 11,5, karo etiketi 11, kapsül 78×39, başlık 16/600. */
 @define-color tahoe_win #1e1e20;
 @define-color tahoe_island #2a2a2d;
 @define-color tahoe_card #2d2d31;
 @define-color tahoe_capsule #36363b;
 
+window.tahoe-settings { font-size: 13px; }
 window.tahoe-settings, window.tahoe-settings .background, window.tahoe-settings toolbarview { background-color: @tahoe_win; }
-window.tahoe-settings headerbar { background: transparent; border-bottom: none; box-shadow: none; min-height: 54px; }
-window.tahoe-settings * { font-size: 14px; }
+window.tahoe-settings headerbar { background: transparent; border-bottom: none; box-shadow: none; min-height: 60px; padding: 0 8px; }
 
-/* yüzen kenar çubuğu adası */
-.tahoe-island { background-color: @tahoe_island; border-radius: 18px; box-shadow: 0 1px 8px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.06); }
-.tahoe-island searchentry, .tahoe-island entry { background-color: alpha(@window_fg_color, 0.08); border-radius: 999px; border: none; box-shadow: none; min-height: 32px; }
-.tahoe-island .navigation-sidebar { background: transparent; padding: 2px 8px 10px 8px; }
+/* yüzen kenar çubuğu paneli (pencere düğmeleri, arama, hesap ve liste içinde) */
+.tahoe-island { background-color: @tahoe_island; border-radius: 18px; box-shadow: 0 1px 6px rgba(0,0,0,0.10), inset 0 0 0 1px alpha(@window_fg_color, 0.05); }
+.tahoe-island searchentry, .tahoe-island entry { background-color: alpha(@window_fg_color, 0.085); border-radius: 999px; border: none; box-shadow: none; min-height: 30px; outline: none; }
+.tahoe-island .navigation-sidebar { background: transparent; padding: 2px 10px 10px 12px; }
 .tahoe-island .navigation-sidebar row { border-radius: 9px; margin: 0; padding: 0 2px; min-height: 34px; }
 .tahoe-island .navigation-sidebar row:selected, .tahoe-island .navigation-sidebar row:selected:hover { background-color: @accent_bg_color; color: #ffffff; }
 .tahoe-island .navigation-sidebar row:hover:not(:selected) { background-color: alpha(@window_fg_color, 0.06); }
 .tahoe-account { border-radius: 12px; padding: 4px 6px; margin-bottom: 6px; }
-.tahoe-account-name { font-weight: 600; }
+.tahoe-account-name { font-weight: 600; font-size: 14px; }
 .tahoe-account .caption { font-size: 12px; }
 
 /* renkli simge karoları */
-.tahoe-tile { border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12), 0 1px 1.5px rgba(0,0,0,0.30); }
+.tahoe-tile { border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12), 0 1px 1.5px rgba(0,0,0,0.28); }
 .tahoe-tile image { color: #ffffff; -gtk-icon-style: symbolic; }
 .tile-blue   { background-image: linear-gradient(#4aa2ff, #0a72f0); }
 .tile-green  { background-image: linear-gradient(#55de6c, #2db04b); }
@@ -167,26 +167,34 @@ window.tahoe-settings * { font-size: 14px; }
 .tile-purple { background-image: linear-gradient(#9b7aff, #6845e2); }
 .tile-teal   { background-image: linear-gradient(#5bd3e7, #1d9cc2); }
 
-/* ‹ › kapsülü (gölgeli hap) ve başlık */
-.tahoe-capsule { background-color: @tahoe_capsule; border-radius: 999px; padding: 2px; margin: 8px 0 8px 6px;
-                 box-shadow: 0 1px 4px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(255,255,255,0.07); }
-.tahoe-capsule button { min-width: 32px; min-height: 30px; padding: 0; border-radius: 999px; border: none; background: transparent; box-shadow: none; }
-.tahoe-capsule button:hover { background-color: alpha(@window_fg_color, 0.08); }
-.tahoe-capsule button:disabled { opacity: 0.35; }
-.tahoe-title { font-weight: 700; font-size: 17px; margin-left: 12px; }
+/* ‹ › kapsülü ve başlık */
+.tahoe-capsule { background-color: @tahoe_capsule; border-radius: 999px; padding: 0 2px; margin: 0 0 0 -4px; min-height: 0;
+                 box-shadow: 0 1px 5px rgba(0,0,0,0.16), inset 0 0 0 1px alpha(@window_fg_color, 0.05); }
+.tahoe-capsule button { min-width: 0; min-height: 0; padding: 0; border-radius: 999px; border: none; background: transparent; box-shadow: none; }
+.tahoe-capsule button:hover { background-color: alpha(@window_fg_color, 0.07); }
+.tahoe-capsule button:disabled { opacity: 0.38; }
+.tahoe-capsule image { -gtk-icon-size: 16px; }
+.tahoe-title { font-weight: 600; font-size: 16px; margin-left: 10px; }
 
 /* gruplu kartlar, bölüm başlıkları, satırlar */
-window.tahoe-settings .boxed-list { background-color: @tahoe_card; border-radius: 14px; border: none; box-shadow: none; }
-window.tahoe-settings .boxed-list > row { min-height: 42px; background-color: transparent; }
-window.tahoe-settings .boxed-list > row:hover { background-color: transparent; }
-window.tahoe-settings .boxed-list > row.activatable:hover { background-color: alpha(@window_fg_color, 0.04); }
-window.tahoe-settings preferencesgroup label.heading { font-weight: 700; font-size: 15px; opacity: 1; color: @window_fg_color; margin: 16px 6px 2px 6px; }
-window.tahoe-settings .boxed-list > row .subtitle, window.tahoe-settings .boxed-list > row label.subtitle { font-size: 12px; opacity: 0.6; }
+window.tahoe-settings list.boxed-list { background-color: @tahoe_card; border-radius: 16px; border: none; box-shadow: none; }
+window.tahoe-settings list.boxed-list > row { min-height: 42px; background-color: transparent; border: none; border-radius: 0; margin: 0;
+  background-image: linear-gradient(alpha(@window_fg_color, 0.085), alpha(@window_fg_color, 0.085)); background-size: 95% 1px; background-position: center bottom; background-repeat: no-repeat; }
+window.tahoe-settings list.boxed-list > row:last-child { background-image: none; }
+window.tahoe-settings list.boxed-list > row > box.header, window.tahoe-settings list.boxed-list > row > .header { padding-left: 9px; padding-right: 9px; }
+window.tahoe-settings list.boxed-list > row.activatable:hover { background-color: alpha(@window_fg_color, 0.035); }
+window.tahoe-settings preferencesgroup label.heading { font-weight: 600; font-size: 14px; opacity: 1; color: @window_fg_color; margin: 0 0 11px 9px; }
+.tahoe-rowtitle { font-size: 13px; }
+.tahoe-rowsub, window.tahoe-settings row .subtitle { font-size: 11.5px; opacity: 0.6; }
 window.tahoe-settings .dim-label { opacity: 0.6; }
 
-/* açılır menü: değerin yanında küçük kare içinde ⌃⌄ (Apple) */
-window.tahoe-settings row.combo image.dropdown-arrow, window.tahoe-settings dropdown image.dropdown-arrow {
-  -gtk-icon-source: -gtk-icontheme("tahoe-updown-symbolic"); background-color: alpha(@window_fg_color, 0.09); border-radius: 5px; padding: 2px; min-width: 14px; min-height: 14px; margin-left: 6px; }
+/* satır içi aralıklar: öndeki simge ile başlık, arkadaki düğmeler arası */
+window.tahoe-settings list.boxed-list > row box.prefixes { margin-right: 10px; }
+window.tahoe-settings list.boxed-list > row box.suffixes { margin-left: 8px; }
+window.tahoe-settings list.boxed-list > row box.suffixes > *:not(:first-child) { margin-left: 8px; }
+.tahoe-island searchentry text, .tahoe-island entry text { margin-left: 4px; }
+/* açılır menü: değerin yanında daire içinde ⌃⌄ (Apple) */
+image.tahoe-updown { background-color: alpha(@window_fg_color, 0.085); border-radius: 999px; padding: 4px; margin-left: 8px; color: @window_fg_color; }
 
 /* anahtarlar: vurgu rengi (mavi) */
 switch { background-color: alpha(@window_fg_color, 0.20); border: none; min-width: 40px; min-height: 22px; }
@@ -194,7 +202,13 @@ switch:checked { background-color: @accent_bg_color; }
 switch slider { background-color: #ffffff; border-radius: 999px; box-shadow: 0 1px 3px rgba(0,0,0,0.35); }
 
 /* Görünüm: seçenek önizleme karoları */
-.tahoe-choice { border-radius: 12px; padding: 4px; background: transparent; border: 2px solid transparent; }
+.tahoe-choice { border-radius: 10px; padding: 2px; background: transparent; border: 2px solid transparent; box-shadow: none; min-height: 0; min-width: 0; }
 .tahoe-choice:checked { border-color: @accent_bg_color; background: transparent; }
-.tahoe-choice-label { font-size: 12px; opacity: 0.7; }
-.tahoe-choice:checked + .tahoe-choice-label, .tahoe-choice-label.sel { font-weight: 700; opacity: 1; }
+.tahoe-choice:hover { background: transparent; }
+.tahoe-choice-label { font-size: 11px; opacity: 0.6; }
+.tahoe-choice-label.sel { font-weight: 700; opacity: 1; }
+.tahoe-dot { background: transparent; border: none; box-shadow: none; padding: 0; min-width: 0; min-height: 0; }
+
+/* sayısal alanlar (SpinRow): iri gri kutu yerine düz değer + küçük − + düğmeleri */
+window.tahoe-settings row.spin spinbutton, window.tahoe-settings row.spin spinbutton text, window.tahoe-settings row.spin spinbutton > text { background: transparent; box-shadow: none; border: none; outline: none; }
+window.tahoe-settings row.spin spinbutton > button { min-width: 28px; min-height: 24px; padding: 0; border-radius: 8px; }
