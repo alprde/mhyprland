@@ -451,11 +451,20 @@ def wifi_dev():
         if len(f) >= 2 and f[1] == 'wifi': return f[0]
     return ''
 
+class RowEntry(Adw.ActionRow):
+    """Apple tarzı alan: etiket solda, düzenlenebilir değer sağda (soluk, çerçevesiz)."""
+    def __init__(self, title):
+        super().__init__(title=title)
+        self.e = Gtk.Entry(has_frame=False, xalign=1, valign=Gtk.Align.CENTER, hexpand=True, width_chars=22, css_classes=['tahoe-flatentry'])
+        self.add_suffix(self.e); self.set_activatable_widget(self.e)
+    def set_text(self, t): self.e.set_text(t or '')
+    def get_text(self): return self.e.get_text()
+
 def conn_details(title, conn, dev, wifi=False):
     """Apple'daki "Ayrıntılar…" penceresi: Genel · TCP/IP · DNS · Donanım. Değişiklikler nmcli ile uygulanır."""
     q = lambda t: str(t).replace("'", "'\\''")
     nm = lambda f: sh(f"nmcli -g {f} con show id '{q(conn)}'")
-    d = Adw.Dialog(title=title, content_width=560, content_height=640)
+    d = Adw.Dialog(title=title, content_width=520, content_height=540)
     page = Adw.PreferencesPage(); mods = {}
     # Genel
     g = grp('Genel')
@@ -477,15 +486,15 @@ def conn_details(title, conn, dev, wifi=False):
     meth = r_combo('IPv4 yapılandırması', ['DHCP kullanarak', 'Elle'], 1 if manual else 0, lambda i: None)
     g2.add(meth); mods['ipv4.method'] = lambda: 'manual' if meth.get_selected() == 1 else 'auto'
     live_ip = sh(f'nmcli -g IP4.ADDRESS dev show {dev}') or ''
-    ipe = Adw.EntryRow(title='IP adresi (adres/önek)'); ipe.set_text(nm('ipv4.addresses') or live_ip); g2.add(ipe)
-    gwe = Adw.EntryRow(title='Yönlendirici'); gwe.set_text(nm('ipv4.gateway') or sh(f'nmcli -g IP4.GATEWAY dev show {dev}')); g2.add(gwe)
+    ipe = RowEntry(title='IP adresi (adres/önek)'); ipe.set_text(nm('ipv4.addresses') or live_ip); g2.add(ipe)
+    gwe = RowEntry(title='Yönlendirici'); gwe.set_text(nm('ipv4.gateway') or sh(f'nmcli -g IP4.GATEWAY dev show {dev}')); g2.add(gwe)
     mods['ipv4.addresses'] = lambda: ipe.get_text() if meth.get_selected() == 1 else ''
     mods['ipv4.gateway'] = lambda: gwe.get_text() if meth.get_selected() == 1 else ''
     page.add(g2)
     # DNS
     g3 = grp('DNS')
-    dnse = Adw.EntryRow(title='DNS sunucuları (virgülle)'); dnse.set_text((nm('ipv4.dns') or sh(f'nmcli -g IP4.DNS dev show {dev}')).replace('\n', ', ').replace(',', ', ').replace('  ', ' ')); g3.add(dnse)
-    sde = Adw.EntryRow(title='Arama alanları'); sde.set_text(nm('ipv4.dns-search')); g3.add(sde)
+    dnse = RowEntry(title='DNS sunucuları (virgülle)'); dnse.set_text((nm('ipv4.dns') or sh(f'nmcli -g IP4.DNS dev show {dev}')).replace('\n', ', ').replace(',', ', ').replace('  ', ' ')); g3.add(dnse)
+    sde = RowEntry(title='Arama alanları'); sde.set_text(nm('ipv4.dns-search')); g3.add(sde)
     mods['ipv4.dns'] = lambda: dnse.get_text().replace(' ', '')
     mods['ipv4.dns-search'] = lambda: sde.get_text().replace(' ', '')
     page.add(g3)
@@ -493,7 +502,7 @@ def conn_details(title, conn, dev, wifi=False):
     g4 = grp('Donanım')
     g4.add(r_info('Donanım adresi', sh(f'cat /sys/class/net/{dev}/address') or '—'))
     g4.add(r_info('Arayüz', dev)); g4.add(r_info('Hız', (sh(f'cat /sys/class/net/{dev}/speed 2>/dev/null') + ' Mb/s') if sh(f'cat /sys/class/net/{dev}/speed 2>/dev/null').isdigit() else '—'))
-    mtu = Adw.EntryRow(title='MTU'); mtu.set_text(sh(f'cat /sys/class/net/{dev}/mtu')); g4.add(mtu)
+    mtu = RowEntry(title='MTU'); mtu.set_text(sh(f'cat /sys/class/net/{dev}/mtu')); g4.add(mtu)
     mods['802-11-wireless.mtu' if wifi else '802-3-ethernet.mtu'] = lambda: mtu.get_text().strip() or 'auto'
     page.add(g4)
     # düğmeler
