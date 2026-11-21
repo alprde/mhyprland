@@ -89,6 +89,15 @@ install -m 0755 "$HERE/tools/install-login-theme.sh" "$ROOT/usr/local/sbin/tahoe
 printf '#!/bin/sh\nexec bash /usr/local/sbin/tahoe-login-restore.real --restore\n' > "$ROOT/usr/local/sbin/tahoe-login-restore"
 chmod 0755 "$ROOT/usr/local/sbin/tahoe-login-restore"
 
+# GNOME Keyring: giriş parolası anahtarlığı da açsın (greetd PAM'ında yoksa her açılışta ayrıca parola sorar)
+PAMF="$ROOT/etc/pam.d/greetd"
+if [ -f "$PAMF" ] && [ -e "$ROOT/usr/lib/security/pam_gnome_keyring.so" ] && ! grep -q pam_gnome_keyring "$PAMF"; then
+  cp "$PAMF" "$PAMF.tahoe-bak"
+  awk '{print} /^auth[ \t]+include/ && !a {print "auth       optional     pam_gnome_keyring.so"; a=1}' "$PAMF" > "$PAMF.new"
+  echo "session    optional     pam_gnome_keyring.so auto_start" >> "$PAMF.new"
+  mv "$PAMF.new" "$PAMF"; chmod 0644 "$PAMF"
+fi
+
 sctl enable -f greetd.service
 cat <<EOF
 

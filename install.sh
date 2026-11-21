@@ -130,6 +130,8 @@ run mkdir -p "$HOME/.local/bin" "$STATE" "$HOME/.themes/Tahoe/gtk-3.0" "$HOME/.t
 run cp "$SRC"/bin/tahoe-* "$HOME/.local/bin/"
 run chmod +x "$HOME"/.local/bin/tahoe-*
 run cp "$SRC/share/tahoe/base.css" "$STATE/base.css"
+run mkdir -p "$HOME/.local/share/icons/hicolor/scalable/actions"
+run cp "$SRC"/share/icons/hicolor/scalable/actions/*.svg "$HOME/.local/share/icons/hicolor/scalable/actions/"
 run mkdir -p "$STATE/walls"
 run cp "$SRC"/share/wallpapers/*.jpg "$STATE/walls/"
 run mkdir -p "$HOME/.local/share/fonts"

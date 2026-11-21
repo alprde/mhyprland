@@ -115,7 +115,9 @@ def gtk_css(dark, accent):
         for a, b in [('rgba(36, 36, 42, 0.94)', 'rgba(246, 246, 248, 0.95)'), ('rgba(28, 28, 32, 0.90)', 'rgba(255, 255, 255, 0.92)'),
                      ('rgba(46, 46, 54, 0.85)', 'rgba(255, 255, 255, 0.88)'), ('rgba(40, 40, 48, 0.80)', 'rgba(235, 235, 240, 0.85)'),
                      ('rgba(44, 44, 52, 0.92)', 'rgba(250, 250, 252, 0.95)'), ('rgba(40, 40, 46, 0.90)', 'rgba(248, 248, 250, 0.94)'),
-                     ('rgba(30,30,36,0.92)', 'rgba(250,250,252,0.95)'), ('#f5f5f7', '#1d1d1f'), ('rgba(255,255,255,', 'rgba(0,0,0,')]:
+                     ('rgba(30,30,36,0.92)', 'rgba(250,250,252,0.95)'), ('#f5f5f7', '#1d1d1f'), ('rgba(255,255,255,', 'rgba(0,0,0,'),
+                     ('@define-color tahoe_win #1e1e20', '@define-color tahoe_win #ffffff'), ('@define-color tahoe_island #2a2a2d', '@define-color tahoe_island #f2f2f5'),
+                     ('@define-color tahoe_card #2d2d31', '@define-color tahoe_card #f2f2f4'), ('@define-color tahoe_capsule #36363b', '@define-color tahoe_capsule #ffffff')]:
             css = css.replace(a, b)
         # kaydırıcı/anahtar topuzları ve onay kutusu içi beyaz kalsın
         css = css.replace('switch slider { border-radius: 50%; background-color: #fff;', 'switch slider { border-radius: 50%; background-color: #fff;')
@@ -1653,15 +1655,15 @@ def tile(icon, color, px):
     img.set_halign(Gtk.Align.CENTER); img.set_valign(Gtk.Align.CENTER); box.set_halign(Gtk.Align.START); box.append(img)
     return box
 
-TILE_PX = [22, 26, 30]
+TILE_PX = [20, 22, 26]
 
 class SettingsWindow(Adw.ApplicationWindow):
     def __init__(self, app, pane=None):
-        super().__init__(application=app, title='Sistem Ayarları', default_width=1000, default_height=700)
+        super().__init__(application=app, title='Sistem Ayarları', default_width=780, default_height=640)
         self.add_css_class('tahoe-settings')
         self.nav = []; self.nav_i = -1; self._navlock = False
         self.toasts = Adw.ToastOverlay()
-        self.split = Adw.NavigationSplitView(); self.split.set_min_sidebar_width(260); self.split.set_max_sidebar_width(310)
+        self.split = Adw.NavigationSplitView(); self.split.set_min_sidebar_width(232); self.split.set_max_sidebar_width(250)
         self.toasts.set_child(self.split); self.set_content(self.toasts)
         # ── yüzen kenar çubuğu adası ──
         sb = Adw.ToolbarView(); sh_ = Adw.HeaderBar(); sh_.set_show_title(False); sb.add_top_bar(sh_)
@@ -1674,7 +1676,7 @@ class SettingsWindow(Adw.ApplicationWindow):
         full = sh(f"getent passwd {user} | cut -d: -f5 | cut -d, -f1") or user
         acc = Gtk.Button(css_classes=['flat', 'tahoe-account'], margin_start=6, margin_end=6)
         ab = Gtk.Box(spacing=10, margin_top=4, margin_bottom=4)
-        ab.append(Gtk.Label(label=(full[:1] or '?').upper(), css_classes=['tahoe-avatar'], width_request=40, height_request=40, valign=Gtk.Align.CENTER))
+        ab.append(Gtk.Label(label=(full[:1] or '?').upper(), css_classes=['tahoe-avatar'], width_request=38, height_request=38, valign=Gtk.Align.CENTER))
         tb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
         tb.append(Gtk.Label(label=full, xalign=0, css_classes=['tahoe-account-name'])); tb.append(Gtk.Label(label='Yerel hesap', xalign=0, css_classes=['dim-label', 'caption']))
         ab.append(tb); acc.set_child(ab); acc.connect('clicked', lambda *_: self.show_pane('users')); island.append(acc)
@@ -1685,7 +1687,7 @@ class SettingsWindow(Adw.ApplicationWindow):
                 r = Gtk.ListBoxRow(selectable=False, activatable=False, height_request=14); r.add_css_class('tahoe-sep'); r.sep = True; r.name = ''; self.lb.append(r); self.idx.append(None); continue
             key, name, icon, fn = p
             r = Gtk.ListBoxRow(); r.sep = False; r.key = key; r.name = name
-            h = Gtk.Box(spacing=11, margin_top=4, margin_bottom=4, margin_start=6, margin_end=8)
+            h = Gtk.Box(spacing=10, margin_top=3, margin_bottom=3, margin_start=4, margin_end=6)
             r.tile = tile(icon, PANE_COLORS.get(key, 'gray'), TILE_PX[S['sidebar_icon']]); h.append(r.tile); h.append(Gtk.Label(label=name, xalign=0))
             r.set_child(h); self.lb.append(r); self.idx.append(p)
         sc = Gtk.ScrolledWindow(vexpand=True); sc.set_child(self.lb); island.append(sc); sb.set_content(island)

@@ -136,5 +136,5 @@ end
 hl.layer_rule({ name = "blur-popups-tahoe-bar", match = { namespace = "tahoe-bar" }, blur_popups = true, ignore_alpha = 0.2 })
 
 -- Tahoe uygulamaları
-hl.window_rule({ name = "tahoe-settings", match = { class = "^org.tahoe.Settings$" }, float = true, size = "1000 700", center = true })
+hl.window_rule({ name = "tahoe-settings", match = { class = "^org.tahoe.Settings$" }, float = true, size = "780 640", center = true })
 hl.window_rule({ name = "float-utils", match = { class = "^(pavucontrol|nm-connection-editor|system-config-printer)$" }, float = true, center = true })
