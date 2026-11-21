@@ -467,7 +467,7 @@ def conn_details(title, conn, dev, wifi=False):
     d = Adw.Dialog(title=title, content_width=520, content_height=540)
     page = Adw.PreferencesPage(); mods = {}
     # Genel
-    g = grp('Genel')
+    g = grp('Genel'); g.set_margin_top(0)      # ilk grup pencerenin tepesinden başlar
     auto = Gtk.Switch(valign=Gtk.Align.CENTER, active=nm('connection.autoconnect') != 'no')
     r = Adw.ActionRow(title='Bu ağa otomatik katıl' if wifi else 'Otomatik bağlan'); r.add_suffix(auto); g.add(r)
     mods['connection.autoconnect'] = lambda: 'yes' if auto.get_active() else 'no'
@@ -506,7 +506,7 @@ def conn_details(title, conn, dev, wifi=False):
     mods['802-11-wireless.mtu' if wifi else '802-3-ethernet.mtu'] = lambda: mtu.get_text().strip() or 'auto'
     page.add(g4)
     # düğmeler
-    g5 = grp()
+    g5 = grp(); g5.set_margin_top(14)          # Donanım kartı ile düğme kartı birbirine yapışmasın
     def apply():
         args = ' '.join(f"{k} '{q(f())}'" for k, f in mods.items())
         toast('Uygulanıyor…')
