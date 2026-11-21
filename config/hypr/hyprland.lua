@@ -4,10 +4,11 @@
 local home = os.getenv("HOME")
 hl.env("PATH", home .. "/.local/bin:" .. (os.getenv("PATH") or "/usr/bin"))
 -- greetd gibi giriş yöneticileri ~/.local/bin'i PATH'e koymaz ve hl.env başlangıç komutlarına yansımıyor → komutlara PATH'i açıkça veriyoruz
-local P = "env PATH=" .. home .. "/.local/bin:" .. (os.getenv("PATH") or "/usr/bin") .. " "
+local P = "env XDG_MENU_PREFIX=plasma- PATH=" .. home .. "/.local/bin:" .. (os.getenv("PATH") or "/usr/bin") .. " "
 hl.env("XCURSOR_SIZE", "24")
 hl.env("XCURSOR_THEME", "capitaine-cursors")
 hl.env("GTK_THEME", "Tahoe")
+hl.env("XDG_MENU_PREFIX", "plasma-")   -- KDE uygulamaları (Dolphin) uygulama listesini/ilişkilendirmeleri bu önekle bulur
 
 require("tahoe")  -- ekran/giriş/görünüm ayarları (Sistem Ayarları üretir)
 
