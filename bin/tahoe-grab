@@ -1,0 +1,19 @@
+#!/bin/sh
+# Alan seç ama görüntüyü SEÇİMDEN ÖNCE al: slurp seçerken klavye odağını alır, alttaki pencereler pasif (backdrop) sayılıp
+# soluk çıkıyordu. Seçilen bölge PPM olarak stdout'a yazılır; Esc ile iptalde çıkış kodu 1.
+# Test için TAHOE_GRAB_REGION="x y w h" (mantıksal px) slurp'ı atlar.
+M="$(hyprctl monitors -j | jq -r '.[] | select(.focused) | "\(.name) \(.x) \(.y) \(.scale)"')"
+set -- $M; N="$1"; MX="$2"; MY="$3"; SC="$4"
+F="$(mktemp --suffix=.ppm)"; trap 'rm -f "$F"' EXIT
+grim -o "$N" -t ppm "$F" || exit 1
+R="${TAHOE_GRAB_REGION:-$(slurp -d -f '%x %y %w %h')}" || exit 1
+python3 - "$F" "$R" "$MX" "$MY" "$SC" <<'PY'
+import sys
+from PIL import Image
+f, r, mx, my, sc = sys.argv[1], sys.argv[2].split(), float(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5])
+x, y, w, h = [float(v) for v in r]
+im = Image.open(f)
+b = (round((x - mx) * sc), round((y - my) * sc), round((x - mx + w) * sc), round((y - my + h) * sc))
+b = (max(0, b[0]), max(0, b[1]), min(im.width, b[2]), min(im.height, b[3]))
+im.crop(b).save(sys.stdout.buffer, 'PPM')
+PY
