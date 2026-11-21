@@ -87,7 +87,7 @@ hl.bind(mod .. " + ALT + equal", hl.dsp.exec_cmd(P .. "tahoe-zoom in"))      -- 
 hl.bind(mod .. " + ALT + minus", hl.dsp.exec_cmd(P .. "tahoe-zoom out"))     -- ⌘⌥−  uzaklaştır
 hl.bind(mod .. " + ALT + 0", hl.dsp.exec_cmd(P .. "tahoe-zoom reset"))      -- ⌘⌥0  sıfırla
 hl.bind(mod .. " + ALT + Escape", hl.dsp.exec_cmd(P .. "tahoe-forcequit"))
-hl.bind(mod .. " + ALT + S", hl.dsp.exec_cmd("sh -c 'D=\"$(xdg-user-dir PICTURES)/Ekran Görüntüleri\"; mkdir -p \"$D\"; HYPRSHOT_DIR=\"$D\" hyprshot -m output'"))   -- Super+Alt+S: tüm ekran: dosyaya kaydeder + panoya kopyalar
+hl.bind(mod .. " + ALT + S", hl.dsp.exec_cmd(P .. "tahoe-shot-save full"))   -- Super+Alt+S: tüm ekran (tam çözünürlük) → dosya + pano
 hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd(P .. "tahoe-shot"))   -- Super+Shift+S: alan seç → Swappy düzenleyicisi (Ctrl+C kopyala, Ctrl+S kaydet)
 hl.bind(mod .. " + F",      hl.dsp.window.fullscreen())
 hl.bind(mod .. " + M",      hl.dsp.window.move({ workspace = "special:minimized" }))   -- küçült
@@ -96,7 +96,7 @@ hl.bind(mod .. " + Q",      hl.dsp.window.close())
 hl.bind(mod .. " + SHIFT + E", hl.dsp.exec_cmd("hyprctl dispatch 'hl.dsp.exit()'"))
 hl.bind(mod .. " + V",      hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + J",      hl.dsp.layout("togglesplit"))
-hl.bind("Print", hl.dsp.exec_cmd("sh -c 'D=\"$(xdg-user-dir PICTURES)/Ekran Görüntüleri\"; mkdir -p \"$D\"; HYPRSHOT_DIR=\"$D\" hyprshot -m region'"))
+hl.bind("Print", hl.dsp.exec_cmd(P .. "tahoe-shot-save region"))   -- Print: alan seç → dosya + pano
 
 hl.bind(mod .. " + left",  hl.dsp.focus({ direction = "left" }))
 hl.bind(mod .. " + right", hl.dsp.focus({ direction = "right" }))
