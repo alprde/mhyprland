@@ -1478,7 +1478,7 @@ def page_shortcuts():
     for title, rows in [
         ('Mission Control', [('⌘ Tab', 'Mission Control (tüm masaüstleri ve pencereler)'), ('⌘ ⌃ ↑', 'Mission Control'), ('⌘ ⌃ ← / →', 'Önceki / sonraki masaüstü'), ('⌘ 1…0', 'Masaüstüne geç'), ('⌘ Shift 1…0', 'Pencereyi masaüstüne taşı')]),
         ('Pencereler', [('⌘ ⌥ Tab', 'Pencere listesi'), ('⌘ Q', 'Pencereyi kapat'), ('⌘ F', 'Tam ekran'), ('⌘ V', 'Yüzen pencere')]),
-        ('Ekran Görüntüleri', [('⌘ Alt S', 'Tüm ekranın görüntüsü'), ('⌘ Shift S', 'Alan seç, düzenle ve kopyala/kaydet (Spectacle)'), ('Print', 'Seçili alanın görüntüsü (Resimler/Ekran Görüntüleri)')]),
+        ('Ekran Görüntüleri', [('⌘ Alt S', 'Tüm ekranın görüntüsü'), ('⌘ Shift S', 'Alan seç, düzenle (Satty), Enter ile kopyala + kaydet'), ('Print', 'Seçili alanın görüntüsü (Resimler/Ekran Görüntüleri)')]),
         ('Uygulamalar', [('⌘ Enter', 'Terminal'), ('⌘ B', 'Firefox'), ('⌘ C', 'VS Code'), ('⌘ Space / ⌘ D', 'Spotlight'), ('⌘ ,', 'Sistem Ayarları')]),
         ('Erişilebilirlik', [('⌘ ⌥ =', 'Yakınlaştır'), ('⌘ ⌥ −', 'Uzaklaştır'), ('⌘ ⌥ 0', 'Yakınlaştırmayı sıfırla')]),
         ('Sistem', [('⌘ L', 'Ekranı kilitle'), ('⌘ ⌃ Q', 'Ekranı kilitle'), ('⌘ ⌥ Esc', 'Uygulamadan zorla çık'), ('⌘ Shift E', 'Oturumu kapat')])]:

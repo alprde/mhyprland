@@ -87,7 +87,7 @@ hl.bind(mod .. " + ALT + minus", hl.dsp.exec_cmd(P .. "tahoe-zoom out"))     -- 
 hl.bind(mod .. " + ALT + 0", hl.dsp.exec_cmd(P .. "tahoe-zoom reset"))      -- ⌘⌥0  sıfırla
 hl.bind(mod .. " + ALT + Escape", hl.dsp.exec_cmd(P .. "tahoe-forcequit"))
 hl.bind(mod .. " + ALT + S", hl.dsp.exec_cmd("sh -c 'D=\"$(xdg-user-dir PICTURES)/Ekran Görüntüleri\"; mkdir -p \"$D\"; HYPRSHOT_DIR=\"$D\" hyprshot -m output'"))   -- Super+Alt+S: tüm ekran: dosyaya kaydeder + panoya kopyalar
-hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd("spectacle -r"))   -- Super+Shift+S: alan seç → Spectacle düzenleyicisi (ok/kutu/yazı/bulanıklaştır, kopyala/kaydet); Xnip gibi
+hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd(P .. "tahoe-shot"))   -- Super+Shift+S: alan seç → Satty düzenleyicisi (Xnip gibi); Enter = kopyala + kaydet
 hl.bind(mod .. " + F",      hl.dsp.window.fullscreen())
 hl.bind(mod .. " + M",      hl.dsp.window.move({ workspace = "special:minimized" }))   -- küçült
 hl.bind(mod .. " + SHIFT + M", hl.dsp.workspace.toggle_special("minimized"))        -- küçültülenleri göster/gizle
@@ -136,5 +136,6 @@ end
 hl.layer_rule({ name = "blur-popups-tahoe-bar", match = { namespace = "tahoe-bar" }, blur_popups = true, ignore_alpha = 0.2 })
 
 -- Tahoe uygulamaları
+hl.window_rule({ name = "satty", match = { class = "^com.gabm.satty$" }, float = true, center = true })
 hl.window_rule({ name = "tahoe-settings", match = { class = "^org.tahoe.Settings$" }, float = true, size = "780 640", center = true })
 hl.window_rule({ name = "float-utils", match = { class = "^(pavucontrol|nm-connection-editor|system-config-printer)$" }, float = true, center = true })
