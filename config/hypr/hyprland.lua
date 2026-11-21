@@ -87,7 +87,7 @@ hl.bind(mod .. " + ALT + minus", hl.dsp.exec_cmd(P .. "tahoe-zoom out"))     -- 
 hl.bind(mod .. " + ALT + 0", hl.dsp.exec_cmd(P .. "tahoe-zoom reset"))      -- ⌘⌥0  sıfırla
 hl.bind(mod .. " + ALT + Escape", hl.dsp.exec_cmd(P .. "tahoe-forcequit"))
 hl.bind(mod .. " + ALT + S", hl.dsp.exec_cmd("sh -c 'D=\"$(xdg-user-dir PICTURES)/Ekran Görüntüleri\"; mkdir -p \"$D\"; HYPRSHOT_DIR=\"$D\" hyprshot -m output'"))   -- Super+Alt+S: tüm ekran: dosyaya kaydeder + panoya kopyalar
-hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd("sh -c 'D=\"$(xdg-user-dir PICTURES)/Ekran Görüntüleri\"; mkdir -p \"$D\"; HYPRSHOT_DIR=\"$D\" hyprshot -m region'"))   -- Super+Shift+S: seçili alan: dosyaya kaydeder + panoya kopyalar
+hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd("spectacle -r"))   -- Super+Shift+S: alan seç → Spectacle düzenleyicisi (ok/kutu/yazı/bulanıklaştır, kopyala/kaydet); Xnip gibi
 hl.bind(mod .. " + F",      hl.dsp.window.fullscreen())
 hl.bind(mod .. " + M",      hl.dsp.window.move({ workspace = "special:minimized" }))   -- küçült
 hl.bind(mod .. " + SHIFT + M", hl.dsp.workspace.toggle_special("minimized"))        -- küçültülenleri göster/gizle
