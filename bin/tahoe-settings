@@ -426,6 +426,7 @@ def new_page(*groups):
     p = Adw.PreferencesPage(); p.set_margin_start(9); p.set_margin_end(9)
     for k, g in enumerate(groups):
         if k == 0: g.set_margin_top(0)      # ilk grup sayfanın tepesinden başlar (Apple gibi)
+        elif not g.get_title(): g.set_margin_top(14)   # başlıksız ardışık kartlar arasında Apple'daki boşluk
         p.add(g)
     return p
 
@@ -919,7 +920,7 @@ def balance_row():
 
 def page_a11y_vision():
     a = S['a11y']; lk = S['look']
-    g1 = grp('Ekran')
+    g1 = grp()
     g1.add(r_switch('Hareketi azalt', not lk['animations'], lambda v: (lk.__setitem__('animations', not v), schedule_apply()), 'Pencere ve menü animasyonlarını kapatır'))
     def reduce_t(v):
         if v: S['_prev_look'] = {'opacity': lk['opacity'], 'blur': lk['blur']}; lk['opacity'] = 1.0; lk['blur'] = False
@@ -1589,9 +1590,9 @@ PANES = [
 # ───────────────────────── macOS trafik ışıkları ─────────────────────────
 TL_CSS = b"""
 .tl-box { margin: 0 4px 0 8px; }
-button.tl { min-width: 16px; min-height: 16px; padding: 0; margin: 0; border-radius: 999px; box-shadow: none; background-image: none;
+button.tl { min-width: 14px; min-height: 14px; padding: 0; margin: 0; border-radius: 999px; box-shadow: none; background-image: none;
             border: 1px solid rgba(0,0,0,0.14); }
-button.tl label { font-size: 11px; font-weight: 800; color: rgba(0,0,0,0.55); opacity: 0; }
+button.tl label { font-size: 10px; font-weight: 800; color: rgba(0,0,0,0.55); opacity: 0; }
 .tl-box:hover button.tl label { opacity: 1; }
 button.tl-close { background-color: #ff5f57; } button.tl-close:hover { background-color: #ff5f57; }
 button.tl-min   { background-color: #febc2e; } button.tl-min:hover   { background-color: #febc2e; }
@@ -1636,7 +1637,7 @@ button.cc-media:hover {{ background-color: rgba({ov},0.12); }}
 """.encode()
 
 def traffic_lights(win):
-    box = Gtk.Box(spacing=9, valign=Gtk.Align.CENTER); box.add_css_class('tl-box')
+    box = Gtk.Box(spacing=11, valign=Gtk.Align.CENTER); box.add_css_class('tl-box')
     def mk(cls, glyph, cb):
         b = Gtk.Button(); b.add_css_class('tl'); b.add_css_class(cls); b.set_focusable(False)
         b.set_child(Gtk.Label(label=glyph)); b.connect('clicked', lambda *_: cb()); box.append(b)
@@ -1664,11 +1665,11 @@ PANE_COLORS = {'wifi': 'blue', 'bluetooth': 'blue', 'network': 'blue', 'battery'
                'lock': 'black', 'privacy': 'blue', 'users': 'blue', 'keyboard': 'gray', 'mouse': 'gray', 'trackpad': 'gray', 'printers': 'gray'}
 
 def tile(icon, color, px):
-    """Yuvarlak köşeli renkli simge karosu (beyaz sembol)."""
-    box = Gtk.Box(halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER, css_classes=['tahoe-tile', f'tile-{color}'])
-    box.set_size_request(px, px)
-    img = Gtk.Image.new_from_icon_name(icon); img.set_pixel_size(max(10, int(px * 0.6)))
-    img.set_halign(Gtk.Align.CENTER); img.set_valign(Gtk.Align.CENTER); box.set_halign(Gtk.Align.START); box.append(img)
+    """Yuvarlak köşeli renkli simge karosu; beyaz sembol karonun tam ortasında."""
+    box = Gtk.CenterBox(halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER, css_classes=['tahoe-tile', f'tile-{color}'])
+    box.set_size_request(px, px); box.set_hexpand(False); box.set_vexpand(False)
+    img = Gtk.Image.new_from_icon_name(icon); img.set_pixel_size(max(10, int(px * 0.58)))
+    img.set_halign(Gtk.Align.CENTER); img.set_valign(Gtk.Align.CENTER); box.set_center_widget(img)
     return box
 
 TILE_PX = [19, 21, 24]
@@ -1684,15 +1685,15 @@ class SettingsWindow(Adw.ApplicationWindow):
         # ── yüzen kenar çubuğu adası ──
         sb = Adw.ToolbarView()
         island = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, css_classes=['tahoe-island'], margin_start=8, margin_end=2, margin_top=8, margin_bottom=8)
-        wh = Gtk.WindowHandle(); tlb = Gtk.Box(margin_start=14, margin_top=12, margin_bottom=29); tlb.append(traffic_lights(self)); wh.set_child(tlb); island.append(wh)
-        self.search = Gtk.SearchEntry(placeholder_text='Ara', margin_start=12, margin_end=10, margin_top=0, margin_bottom=6)
+        wh = Gtk.WindowHandle(); tlb = Gtk.Box(margin_start=14, margin_top=12, margin_bottom=31); tlb.append(traffic_lights(self)); wh.set_child(tlb); island.append(wh)
+        self.search = Gtk.SearchEntry(placeholder_text='Ara', margin_start=12, margin_end=10, margin_top=0, margin_bottom=16)
         island.append(self.search)
         # hesap satırı (Apple'daki "Apple Account" yerine yerel hesap)
         user = os.environ.get('USER', '')
         full = sh(f"getent passwd {user} | cut -d: -f5 | cut -d, -f1") or user
         acc = Gtk.Button(css_classes=['flat', 'tahoe-account'], margin_start=7, margin_end=7)
         ab = Gtk.Box(spacing=10, margin_top=2, margin_bottom=6)
-        ab.append(Gtk.Label(label=(full[:1] or '?').upper(), css_classes=['tahoe-avatar'], width_request=40, height_request=40, valign=Gtk.Align.CENTER))
+        ab.append(Gtk.Label(label=(full[:1] or '?').upper(), css_classes=['tahoe-avatar'], width_request=34, height_request=34, valign=Gtk.Align.CENTER))
         tb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
         tb.append(Gtk.Label(label=full, xalign=0, css_classes=['tahoe-account-name'])); tb.append(Gtk.Label(label='Yerel hesap', xalign=0, css_classes=['dim-label', 'caption']))
         ab.append(tb); acc.set_child(ab); acc.connect('clicked', lambda *_: self.show_pane('users')); island.append(acc)
@@ -1714,7 +1715,7 @@ class SettingsWindow(Adw.ApplicationWindow):
         self.nback = Gtk.Button(icon_name='go-previous-symbolic', css_classes=['flat'], tooltip_text='Geri', sensitive=False, valign=Gtk.Align.CENTER)
         self.nfwd = Gtk.Button(icon_name='go-next-symbolic', css_classes=['flat'], tooltip_text='İleri', sensitive=False, valign=Gtk.Align.CENTER)
         self.nback.connect('clicked', lambda *_: self.go(-1)); self.nfwd.connect('clicked', lambda *_: self.go(1)); cap.append(self.nback); cap.append(self.nfwd)
-        cap.set_size_request(74, 38); self.nback.set_size_request(34, 30); self.nfwd.set_size_request(34, 30); self.chead.pack_start(cap)
+        cap.set_size_request(76, 32); self.nback.set_size_request(36, 26); self.nfwd.set_size_request(36, 26); self.chead.pack_start(cap)
         self.ctitle = Gtk.Label(css_classes=['tahoe-title'], xalign=0); self.chead.pack_start(self.ctitle)
         self.ctb.add_top_bar(self.chead)
         self.cpage = Adw.NavigationPage.new(self.ctb, 'Ayarlar'); self.split.set_content(self.cpage)
@@ -1731,8 +1732,8 @@ class SettingsWindow(Adw.ApplicationWindow):
         while row is not None:
             t = getattr(row, 'tile', None)
             if t is not None:
-                t.set_size_request(TILE_PX[i], TILE_PX[i]); img = t.get_first_child()
-                if img is not None: img.set_pixel_size(max(10, int(TILE_PX[i] * 0.6)))
+                t.set_size_request(TILE_PX[i], TILE_PX[i]); img = t.get_center_widget()
+                if img is not None: img.set_pixel_size(max(10, int(TILE_PX[i] * 0.58)))
             row = row.get_next_sibling()
 
     def filt(self, row):
@@ -2744,7 +2745,7 @@ class TahoeApp(Adw.Application):
         if win is not None:
             win.present(); return
         Gtk.Settings.get_default().set_property('gtk-icon-theme-name', 'Adwaita')
-        pv = Gtk.CssProvider(); pv.load_from_data(b'row.tahoe-sep, row.tahoe-sep:hover { background: transparent; min-height: 0; padding: 0; margin: 0; } .tahoe-avatar { background: #6fd08c; color: #fff; border-radius: 18px; font-weight: 600; font-size: 16px; }')
+        pv = Gtk.CssProvider(); pv.load_from_data(b'row.tahoe-sep, row.tahoe-sep:hover { background: transparent; min-height: 0; padding: 0; margin: 0; } .tahoe-avatar { background: #6fd08c; color: #fff; border-radius: 17px; font-weight: 600; font-size: 14px; }')
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pv, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         pt = Gtk.CssProvider(); pt.load_from_data(TL_CSS + cc_css())
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), pt, Gtk.STYLE_PROVIDER_PRIORITY_USER)
