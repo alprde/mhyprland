@@ -149,6 +149,13 @@ run cp "$SRC"/config/rofi/*.rasi "$HOME/.config/rofi/"
 run cp "$SRC/config/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
 run cp "$SRC/config/gtk-4.0/settings.ini" "$HOME/.config/gtk-4.0/settings.ini"
 
+# fish: ssh sarmalayıcısı (kitty'nin xterm-kitty TERM'ü sunucularda yoksa Backspace bozulur).
+# Kullanıcının kendi ssh.fish dosyası varsa ezilmez.
+if command -v fish >/dev/null 2>&1 && [ ! -e "$HOME/.config/fish/functions/ssh.fish" ]; then
+  run mkdir -p "$HOME/.config/fish/functions"
+  run cp "$SRC/config/fish/functions/ssh.fish" "$HOME/.config/fish/functions/ssh.fish"
+fi
+
 # keyboard layout: take it from the running system
 LAYOUT="$(localectl status 2>/dev/null | awk -F': *' '/X11 Layout/{print $2}' | cut -d, -f1 | tr -d ' ' || true)"
 [ -z "$LAYOUT" ] && LAYOUT="$(awk -F= '/^KEYMAP/{print $2}' /etc/vconsole.conf 2>/dev/null | cut -c1-2 || true)"

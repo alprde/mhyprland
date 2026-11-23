@@ -21,7 +21,12 @@ Singleton {
         const c = activeClass
         if (c === "") return "Finder"
         for (const r of rewrite) if (r[0].test(c)) return r[1]
-        return c
+        // Önce .desktop kaydındaki gerçek uygulama adı (ör. com.microsoft.VSCode -> Visual Studio Code)
+        const de = DesktopEntries.heuristicLookup(c)
+        if (de && de.name) return de.name
+        // Kayıt bulunamazsa ters-DNS önekini at (com.foo.Bar -> Bar)
+        const m = c.match(/^[a-z]+(\.[A-Za-z0-9_-]+){2,}$/)
+        return m ? c.split(".").pop() : c
     }
 
     Timer { id: awDebounce; interval: 25; onTriggered: aw.exec(["hyprctl", "activewindow", "-j"]) }
