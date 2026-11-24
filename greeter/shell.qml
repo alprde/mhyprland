@@ -25,13 +25,13 @@ ShellRoot {
         stdout: StdioCollector { onStreamFinished: { try { root.info = JSON.parse(text); root.session = root.info.session } catch (e) {} } }
     }
     Timer { interval: 1000; running: true; repeat: true; onTriggered: root.now = new Date() }
-    // pil/ağ durumunu 5 sn'de bir yenile (ağ greeter açıldığında henüz bağlanmamış olabilir)
+    // pil/ağ durumunu 2,5 sn'de bir yenile (ağ greeter açıldığında henüz bağlanmamış olabilir)
     Process {
         id: refresh
         command: ["/usr/local/bin/tahoe-greeter-info"]
         stdout: StdioCollector { onStreamFinished: { try { const j = JSON.parse(text); root.info.battery = j.battery; root.info.net = j.net; root.infoChanged() } catch (e) {} } }
     }
-    Timer { interval: 5000; running: true; repeat: true; onTriggered: if (!refresh.running) refresh.running = true }
+    Timer { interval: 2500; running: true; repeat: true; onTriggered: if (!refresh.running) refresh.running = true }
 
     readonly property var days: tr ? ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"] : ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     readonly property var months: tr ? ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"] : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -152,14 +152,27 @@ ShellRoot {
                     }
                 }
             }
-            // Ağ: masaüstü çubuğuyla aynı Nerd Font glifi (Wi-Fi, kablolu, bağlantı yok)
-            Text {
+            // Ağ: Wi-Fi bağlı/değil simgeleri aynı Nerd Font glifinden üretilmiş PNG'ler (tools/make-wifi-icons.py): kalınlık ve boyut birebir aynı.
+            // Kablolu bağlantıda glif doğrudan yazı olarak çizilir.
+            Item {
                 id: netIcon
                 anchors.verticalCenter: parent.verticalCenter
                 property string kind: (root.info.net || "").indexOf("wired") >= 0 ? "wired" : (root.info.net || "").indexOf("offline") >= 0 ? "off" : "wifi"
-                text: kind === "wifi" ? "\uf1eb" : kind === "wired" ? "\uf796" : "\uf071"
-                color: "white"; opacity: kind === "off" ? 0.6 : 1
-                font { family: "JetBrainsMono NFM"; pixelSize: 32 * root.sc }
+                readonly property real em: 32 * root.sc                       // simge "yazı boyutu"
+                width: 0.725 * em; height: 0.5453 * em
+                Text {
+                    anchors.centerIn: parent; visible: netIcon.kind === "wired"
+                    text: "\uf796"; color: "white"; font { family: "JetBrainsMono NFM"; pixelSize: netIcon.em }
+                }
+                Image {
+                    anchors.fill: parent; visible: netIcon.kind === "wifi"
+                    source: Qt.resolvedUrl("wifi-on.png"); smooth: true; mipmap: true
+                }
+                Image {
+                    anchors.fill: parent; visible: netIcon.kind === "off"
+                    source: Qt.resolvedUrl("wifi-off.png"); smooth: true; mipmap: true
+                    opacity: 0.6
+                }
             }
         }
 

@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 """Capitaine imleç temasının en küçük boyutu (24 px) greeter için büyük kalıyor.
-Bu betik temayı küçük bir boyuta (varsayılan 18 px) ölçekleyip yeni bir Xcursor teması yazar.
+Bu betik temayı küçük bir boyuta (varsayılan 30 px) ölçekleyip yeni bir Xcursor teması yazar.
 Kullanım: make-small-cursor.py <kaynak-tema-dizini> <hedef-dizin> [boyut]"""
 import os, struct, sys
 from PIL import Image
 
 src, dst = sys.argv[1], sys.argv[2]
-size = int(sys.argv[3]) if len(sys.argv) > 3 else 18
+size = int(sys.argv[3]) if len(sys.argv) > 3 else 30
 os.makedirs(os.path.join(dst, 'cursors'), exist_ok=True)
 
-def read(path):
-    """Xcursor dosyasından 24 px'e en yakın boyuttaki kareleri okur → [(w,h,xhot,yhot,delay,PIL.Image)]"""
+def read(path, target):
+    """Xcursor dosyasından hedef boyuta en yakın (tercihen daha büyük) boyuttaki kareleri okur → [(w,h,xhot,yhot,delay,PIL.Image)]"""
     d = open(path, 'rb').read()
     if d[:4] != b'Xcur': return None
     n = struct.unpack('<I', d[12:16])[0]
     toc = [struct.unpack('<III', d[16 + 12 * i:28 + 12 * i]) for i in range(n)]
     sizes = sorted({st for t, st, _ in toc if t == 0xfffd0002})
-    pick = min(sizes, key=lambda s: abs(s - 24))
+    bigger = [x for x in sizes if x >= target]
+    pick = min(bigger) if bigger else max(sizes)
     frames = []
     for t, st, pos in toc:
         if t != 0xfffd0002 or st != pick: continue
@@ -42,7 +43,7 @@ def write(path, frames, size):
 
 for name in os.listdir(os.path.join(src, 'cursors')):
     p = os.path.join(src, 'cursors', name)
-    frames = read(os.path.realpath(p))
+    frames = read(os.path.realpath(p), size)
     if frames: write(os.path.join(dst, 'cursors', name), frames, size)
 open(os.path.join(dst, 'index.theme'), 'w').write(f'[Icon Theme]\nName=Tahoe Login Cursor\nInherits=capitaine-cursors\n')
 print('tamam:', len(os.listdir(os.path.join(dst, 'cursors'))), 'imleç,', size, 'px')

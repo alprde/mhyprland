@@ -49,11 +49,11 @@ LANGC="${LANG:-en}"; LANGC="${LANGC:0:2}"
 UHOME="$(getent passwd "$UNAME" | cut -d: -f6)"
 CURSOR="$(sed -n 's/^gtk-cursor-theme-name=//p' "$UHOME/.config/gtk-4.0/settings.ini" 2>/dev/null | head -1)"
 [ -n "$CURSOR" ] && [ -d "$ROOT/usr/share/icons/$CURSOR" ] || CURSOR="Adwaita"
-# Temaların en küçük imleç boyutu (24 px) greeter için büyük kalıyor → 12 px'lik küçültülmüş kopya üret (Pillow yoksa olduğu gibi kalır)
+# Temaların en küçük imleç boyutu (24 px) greeter için büyük kalıyor → 30 px'lik ölçeklenmiş kopya üret (Pillow yoksa olduğu gibi kalır)
 CURSOR_SIZE=24
 if [ -d "$ROOT/usr/share/icons/$CURSOR/cursors" ] && python3 -c 'import PIL' 2>/dev/null \
-   && python3 -I "$HERE/tools/make-small-cursor.py" "$ROOT/usr/share/icons/$CURSOR" "$ROOT/usr/share/icons/tahoe-login-cursor" 18 >/dev/null; then
-  CURSOR="tahoe-login-cursor"; CURSOR_SIZE=18
+   && python3 -I "$HERE/tools/make-small-cursor.py" "$ROOT/usr/share/icons/$CURSOR" "$ROOT/usr/share/icons/tahoe-login-cursor" 30 >/dev/null; then
+  CURSOR="tahoe-login-cursor"; CURSOR_SIZE=30
 fi
 
 if [ "$NO_PACMAN" != 1 ]; then
@@ -66,6 +66,8 @@ install -m 0755 "$HERE/bin/tahoe-greeter-info" "$ROOT/usr/local/bin/tahoe-greete
 install -m 0755 "$HERE/tools/tahoe-greeter-run" "$ROOT/usr/local/bin/tahoe-greeter-run"
 mkdir -p "$ROOT/usr/local/share/tahoe-greeter"
 install -m 0644 "$HERE/greeter/shell.qml" "$ROOT/usr/local/share/tahoe-greeter/shell.qml"
+install -m 0644 "$HERE/greeter/wifi-on.png" "$ROOT/usr/local/share/tahoe-greeter/wifi-on.png"
+install -m 0644 "$HERE/greeter/wifi-off.png" "$ROOT/usr/local/share/tahoe-greeter/wifi-off.png"
 install -m 0755 "$HERE/tools/tahoe-session" "$ROOT/usr/local/bin/tahoe-session"
 install -m 0644 "$BG" "$ROOT/usr/share/tahoe/login-background.jpg"
 cat > "$GD/tahoe-greeter.conf" <<EOF
