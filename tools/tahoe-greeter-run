@@ -1,0 +1,8 @@
+#!/bin/sh
+# greetd'in cage içinde çalıştırdığı giriş ekranı başlatıcısı: önce Quickshell greeter'ı, açılamazsa eski GTK greeter'ı dener.
+# NOT: qs oturum başlatıp kapanırken de sıfırdan farklı kodla çıkabiliyor → "launched" işaret dosyası varsa yedeğe düşme.
+D=/var/cache/tahoe-greeter
+rm -f "$D/launched"
+qs -p /usr/local/share/tahoe-greeter >"$D/greeter.log" 2>&1 && exit 0
+[ -e "$D/launched" ] && exit 0
+exec /usr/local/bin/tahoe-greeter

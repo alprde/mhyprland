@@ -212,19 +212,19 @@ PanelWindow {
         BarButton {   // ağ
             visible: Theme.showWifi
             text: Sys.netKind === "wifi" ? "" : (Sys.netKind === "wired" ? "" : "")
-            family: Theme.nerd; pixelSize: 28; yOffset: -0.3
+            family: Theme.nerd; pixelSize: 32; yOffset: -0.3
             tip: Sys.netKind === "wifi" ? Sys.netName + (Sys.netSignal >= 0 ? "  " + Sys.netSignal + "%" : "")
                  : (Sys.netKind === "wired" ? Sys.netName : "Bağlantı yok")
             onClicked: m => { if (m.button === Qt.RightButton) bar.run("tahoe-settings --pane wifi"); else bar.run("tahoe-cc wifi") }
         }
         BarButton {   // Spotlight
             visible: Theme.showSpotlight
-            text: ""; family: Theme.nerd; pixelSize: 24; yOffset: 0.1; tip: "Spotlight Araması"
+            text: ""; family: Theme.nerd; pixelSize: 23; yOffset: 0.1; tip: "Spotlight Araması"
             onClicked: bar.run("rofi -show drun")
         }
         BarButton {   // Denetim Merkezi
             visible: Theme.showControl
-            text: ""; family: Theme.icons; pixelSize: 20; yOffset: -0.8; tip: "Denetim Merkezi"
+            text: ""; family: Theme.icons; pixelSize: 21; yOffset: -0.8; tip: "Denetim Merkezi"
             onClicked: bar.run("tahoe-cc control")
         }
         BarButton {   // saat

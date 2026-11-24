@@ -183,6 +183,26 @@ def net_icon():
     return 'network-wired-symbolic' if wired else 'network-wireless-offline-symbolic'
 
 
+CURSOR_DIR = '/usr/share/icons/tahoe-login-cursor/cursors'
+
+
+def load_cursor(*names):
+    """Küçültülmüş Xcursor dosyasından doğrudan Gdk.Cursor üretir (GTK'nın tema/boyut seçimini atlar)."""
+    import struct
+    for name in names:
+        try:
+            d = open(os.path.join(CURSOR_DIR, name), 'rb').read()
+            n = struct.unpack('<I', d[12:16])[0]
+            _t, _sz, pos = struct.unpack('<III', d[16:28])        # ilk kare yeterli
+            _, _, _, _, w, h, xh, yh, _delay = struct.unpack('<9I', d[pos:pos + 36])
+            raw = d[pos + 36:pos + 36 + w * h * 4]                  # ARGB (önceden çarpılmış, little-endian) = B8G8R8A8_PREMULTIPLIED
+            tex = Gdk.MemoryTexture.new(w, h, Gdk.MemoryFormat.B8G8R8A8_PREMULTIPLIED, GLib.Bytes.new(raw), w * 4)
+            return Gdk.Cursor.new_from_texture(tex, xh, yh, None)
+        except Exception as e:
+            sys.stderr.write(f'imleç yüklenemedi ({name}): {e}\n')
+    return None
+
+
 # ---------------- arayüz ----------------
 class Win(Gtk.ApplicationWindow):
     def __init__(self, app):
@@ -205,7 +225,12 @@ class Win(Gtk.ApplicationWindow):
         self.entry = Gtk.Entry(visibility=False, css_classes=['pw'], placeholder_text=T_HINT, halign=Gtk.Align.CENTER, input_purpose=Gtk.InputPurpose.PASSWORD)
         self.entry.set_alignment(0.5)
         self.entry.connect('activate', self.on_enter)
-        for w in (av, name, self.entry): bot.append(w)
+        # Doğrulama sırasında parola alanının yerine dönen çark gösterilir (macOS gibi)
+        self.spin = Gtk.Spinner(halign=Gtk.Align.CENTER, visible=False)
+        self.spin.set_size_request(int(26 * SCALE), int(26 * SCALE))
+        self.spin_box = Gtk.Box(halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER, visible=False)
+        self.spin_box.set_size_request(-1, int(34 * SCALE)); self.spin_box.append(self.spin)
+        for w in (av, name, self.entry, self.spin_box): bot.append(w)
         ov.add_overlay(bot)
         st = Gtk.Box(spacing=int(14 * SCALE), halign=Gtk.Align.END, valign=Gtk.Align.START, margin_top=int(12 * SCALE), margin_end=int(22 * SCALE), css_classes=['status'])
         self.kb = Gtk.Label(label=G.get('layout', 'TR' if TR else 'ABC')); self.bat = Gtk.Image(); self.net = Gtk.Image()
@@ -227,6 +252,13 @@ class Win(Gtk.ApplicationWindow):
         self.busy = False
         self.tick(); GLib.timeout_add_seconds(1, self.tick)
         self.entry.grab_focus()
+        # İmleçler: genel ok, parola alanında metin imleci, düğmelerde el
+        cur = load_cursor('left_ptr', 'default')
+        if cur: self.set_cursor(cur)
+        txt = load_cursor('text', 'xterm', 'ibeam')
+        if txt: self.entry.set_cursor(txt)
+        hand = load_cursor('pointer', 'hand2', 'hand1')
+        if hand: self.sess_btn.set_cursor(hand)
 
     def show_session(self):
         name = next((n for i, n in self.sessions if i == self.session), self.session)
@@ -251,7 +283,7 @@ class Win(Gtk.ApplicationWindow):
         if self.busy: return
         pw = entry.get_text()
         if not pw: return
-        self.busy = True; entry.set_sensitive(False); entry.set_placeholder_text(T_WAIT)
+        self.busy = True; entry.set_visible(False); self.spin_box.set_visible(True); self.spin.start()
         threading.Thread(target=self.work, args=(pw,), daemon=True).start()
 
     def work(self, pw):
@@ -269,6 +301,7 @@ class Win(Gtk.ApplicationWindow):
             if DEMO: self.get_application().quit(); return
             os._exit(0)   # GTK/cage'in temiz kapanmasını beklemeden hemen çık: greetd oturumu hemen başlatsın
         self.busy = False
+        self.spin.stop(); self.spin_box.set_visible(False); self.entry.set_visible(True)
         self.entry.set_sensitive(True); self.entry.set_text(''); self.entry.set_placeholder_text(T_WRONG); self.entry.grab_focus()
         sys.stderr.write(f'giriş başarısız: {err}\n')
 

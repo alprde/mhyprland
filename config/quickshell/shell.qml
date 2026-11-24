@@ -8,4 +8,5 @@ ShellRoot {
     }
     HotCorners {}
     OSD {}
+    Splash {}
 }

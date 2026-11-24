@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""Quickshell giriş ekranı için bilgi toplayıcı: yapılandırma, oturum listesi, pil/ağ durumu → JSON (stdout).
+Yapılandırma: /etc/greetd/tahoe-greeter.conf ([greeter] user=, session=, background=, lang=, scale=)."""
+import configparser, glob, json, os, shlex, shutil
+
+CONF = '/etc/greetd/tahoe-greeter.conf'
+cfg = configparser.ConfigParser(); cfg.read(CONF)
+G = cfg['greeter'] if cfg.has_section('greeter') else {}
+LAST = '/var/cache/tahoe-greeter/last-session'
+
+
+def _read(p):
+    try: return open(p).read().strip()
+    except Exception: return ''
+
+
+def exec_of(path):
+    for line in open(path, encoding='utf-8', errors='ignore'):
+        if line.startswith('Exec='): return shlex.split(line[5:].strip())
+    return []
+
+
+def sessions():
+    """Wayland oturumları: [{id, name, cmd}] (uwsm kurulu değilse uwsm oturumları atlanır)."""
+    out = []
+    for p in sorted(glob.glob('/usr/share/wayland-sessions/*.desktop')):
+        name = ''
+        for line in open(p, encoding='utf-8', errors='ignore'):
+            if line.startswith('Name=') and not name: name = line[5:].strip()
+        cmd = exec_of(p)
+        if cmd and cmd[0] == 'uwsm' and not shutil.which('uwsm'): continue
+        out.append({'id': os.path.basename(p), 'name': name or os.path.basename(p), 'cmd': cmd})
+    return out
+
+
+def battery():
+    for b in sorted(glob.glob('/sys/class/power_supply/BAT*')):
+        cap = _read(b + '/capacity')
+        if not cap.isdigit(): continue
+        lv = min(100, int(cap) // 10 * 10); st = _read(b + '/status')
+        if st == 'Full' or (st == 'Charging' and lv == 100): return 'battery-level-100-charged-symbolic'
+        return f'battery-level-{lv}-charging-symbolic' if st == 'Charging' else f'battery-level-{lv}-symbolic'
+    return ''
+
+
+def net():
+    wired = False
+    for n in sorted(glob.glob('/sys/class/net/*')):
+        name = os.path.basename(n)
+        if name == 'lo' or name.startswith(('veth', 'docker', 'br-', 'virbr', 'tun', 'tap', 'vnet')): continue
+        if _read(n + '/operstate') != 'up': continue
+        if os.path.isdir(n + '/wireless'): return 'network-wireless-signal-excellent-symbolic'
+        wired = True
+    return 'network-wired-symbolic' if wired else 'network-wireless-offline-symbolic'
+
+
+ss = sessions()
+want = _read(LAST) or G.get('session', 'hyprland.desktop')
+if not any(s['id'] == want for s in ss): want = ss[0]['id'] if ss else ''
+print(json.dumps({
+    'user': G.get('user', os.environ.get('USER', '')),
+    'session': want, 'sessions': ss,
+    'lang': G.get('lang', os.environ.get('LANG', 'en')[:2]),
+    'background': G.get('background', '/usr/share/tahoe/login-background.jpg'),
+    'scale': float(G.get('scale', '1.1') or 1.1),
+    'battery': battery(), 'net': net(),
+    'layout': G.get('layout', 'TR' if G.get('lang', os.environ.get('LANG', 'en')[:2]) == 'tr' else 'ABC'),
+}))

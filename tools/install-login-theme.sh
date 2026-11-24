@@ -49,6 +49,12 @@ LANGC="${LANG:-en}"; LANGC="${LANGC:0:2}"
 UHOME="$(getent passwd "$UNAME" | cut -d: -f6)"
 CURSOR="$(sed -n 's/^gtk-cursor-theme-name=//p' "$UHOME/.config/gtk-4.0/settings.ini" 2>/dev/null | head -1)"
 [ -n "$CURSOR" ] && [ -d "$ROOT/usr/share/icons/$CURSOR" ] || CURSOR="Adwaita"
+# Temaların en küçük imleç boyutu (24 px) greeter için büyük kalıyor → 12 px'lik küçültülmüş kopya üret (Pillow yoksa olduğu gibi kalır)
+CURSOR_SIZE=24
+if [ -d "$ROOT/usr/share/icons/$CURSOR/cursors" ] && python3 -c 'import PIL' 2>/dev/null \
+   && python3 -I "$HERE/tools/make-small-cursor.py" "$ROOT/usr/share/icons/$CURSOR" "$ROOT/usr/share/icons/tahoe-login-cursor" 18 >/dev/null; then
+  CURSOR="tahoe-login-cursor"; CURSOR_SIZE=18
+fi
 
 if [ "$NO_PACMAN" != 1 ]; then
   for p in greetd cage; do pacman -Q "$p" >/dev/null 2>&1 || pacman -S --needed --noconfirm "$p"; done
@@ -56,6 +62,10 @@ fi
 
 mkdir -p "$ROOT/usr/local/bin" "$ROOT/usr/local/sbin" "$ROOT/usr/share/tahoe" "$GD" "$ROOT/var/cache/tahoe-greeter"
 install -m 0755 "$HERE/bin/tahoe-greeter" "$ROOT/usr/local/bin/tahoe-greeter"
+install -m 0755 "$HERE/bin/tahoe-greeter-info" "$ROOT/usr/local/bin/tahoe-greeter-info"
+install -m 0755 "$HERE/tools/tahoe-greeter-run" "$ROOT/usr/local/bin/tahoe-greeter-run"
+mkdir -p "$ROOT/usr/local/share/tahoe-greeter"
+install -m 0644 "$HERE/greeter/shell.qml" "$ROOT/usr/local/share/tahoe-greeter/shell.qml"
 install -m 0755 "$HERE/tools/tahoe-session" "$ROOT/usr/local/bin/tahoe-session"
 install -m 0644 "$BG" "$ROOT/usr/share/tahoe/login-background.jpg"
 cat > "$GD/tahoe-greeter.conf" <<EOF
@@ -76,7 +86,7 @@ cat > "$GD/config.toml" <<EOF
 vt = 1
 
 [default_session]
-command = "env GTK_USE_PORTAL=0 GDK_DEBUG=no-portals XCURSOR_THEME=$CURSOR XCURSOR_SIZE=20 dbus-run-session cage -s -- /usr/local/bin/tahoe-greeter"
+command = "env GTK_USE_PORTAL=0 GDK_DEBUG=no-portals QT_WAYLAND_DISABLE_WINDOWDECORATION=1 XCURSOR_THEME=$CURSOR XCURSOR_SIZE=$CURSOR_SIZE HOME=/var/cache/tahoe-greeter dbus-run-session cage -s -- /usr/local/bin/tahoe-greeter-run >/dev/null 2>&1"
 user = "greeter"
 EOF
 
