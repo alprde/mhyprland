@@ -6,3 +6,4 @@ MenuList 1.0 MenuList.qml
 MenuPopup 1.0 MenuPopup.qml
 BatteryIcon 1.0 BatteryIcon.qml
 HotCorners 1.0 HotCorners.qml
+OSD 1.0 OSD.qml

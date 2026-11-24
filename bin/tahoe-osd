@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Ses/parlaklığı değiştirir ve macOS tarzı göstergeyi (Quickshell OSD) tetikler.
+# Kullanım: tahoe-osd vol up|down|mute  |  tahoe-osd bri up|down
+case "$1 $2" in
+  "vol up")   wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+ ;;
+  "vol down") wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- ;;
+  "vol mute") wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
+  "bri up")   brightnessctl set 5%+ >/dev/null ;;
+  "bri down") brightnessctl set 5%- >/dev/null ;;
+  *) echo "kullanım: tahoe-osd vol|bri up|down|mute" >&2; exit 1 ;;
+esac
+if [ "$1" = vol ]; then
+  out=$(wpctl get-volume @DEFAULT_AUDIO_SINK@)               # "Volume: 0.55 [MUTED]"
+  val=$(awk '{printf "%d", $2*100+0.5}' <<<"$out")
+  case "$out" in *MUTED*) muted=true ;; *) muted=false ;; esac
+else
+  val=$(brightnessctl -m | cut -d, -f4 | tr -d %); muted=false
+fi
+qs -c tahoe ipc call osd display "$1" "${val:-0}" "$muted"

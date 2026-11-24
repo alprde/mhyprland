@@ -108,3 +108,5 @@ The Apple menu, app menu, Recent Items and Force Quit are rofi `-dmenu` lists wi
 - `hyprbars`-based traffic-light titlebars as an *optional* installer step.
 - Other distros (Fedora/openSUSE/NixOS module).
 - Auto light/dark by schedule; accent-aware wallpaper.
+
+63. **Ses/parlaklık OSD**: `bin/tahoe-osd` değeri değiştirir ve Quickshell `OSD.qml` (IPC hedefi `osd`, fonksiyon `display`; `show` adı CLI alt komutuyla çakışır) macOS tarzı kare göstergeyi 1.4 sn gösterir. Tuş bağları hyprland.lua içinde.

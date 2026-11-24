@@ -7,4 +7,5 @@ ShellRoot {
         delegate: Bar {}
     }
     HotCorners {}
+    OSD {}
 }
