@@ -6,8 +6,8 @@ import Quickshell.Wayland
 // Oturum açılış perdesi (KDE/macOS açılış ekranı gibi): giriş ekranının solarak geçtiği görüntüden devam eder (bulanık
 // zemin + halka), masaüstü hazır olunca solarak kalkar. Net giriş ekranına BENZEMEZ (aynısını iki kez göstermek
 // "donmuş giriş ekranı" gibi görünüyordu). Yalnızca oturum başına bir kez çıkar (bayrak: $XDG_RUNTIME_DIR/tahoe-splash).
-// Oturum KAPATIRKEN (tahoe-logout → ipc "session logout") de aynı görüntü gösterilir, sonra çıkılır. Zemin, yeniden
-// başlat ekranınınkiyle aynı dosyadır (Plymouth temasının background.png'si); tema kurulu değilse siyah kalır.
+// Oturum KAPATIRKEN (tahoe-logout → ipc "session logout") de aynı görüntü gösterilir, sonra çıkılır. Zemin
+// tools/make-blur.py çıktısıdır (yeniden başlat ekranıyla aynı görünüm, Plymouth gerekmez); üretilmediyse siyah kalır.
 Scope {
     id: root
     property bool active: false
@@ -50,9 +50,14 @@ Scope {
                 // yeniden başlat ekranının zemini (giriş sonrası ve çıkışta)
                 Rectangle {
                     anchors.fill: parent; color: "black"
-                    Image {
-                        anchors.fill: parent; fillMode: Image.PreserveAspectCrop
-                        source: root.active || root.leaving ? "file:///usr/share/plymouth/themes/tahoe/background.png" : ""
+                    // altta kullanıcının kopyası (her kurulumda), üstte giriş temasının sistem kopyası (varsa onu örter)
+                    Repeater {
+                        model: ["file://" + Quickshell.env("HOME") + "/.local/share/tahoe/login-blur.png", "file:///usr/share/tahoe/login-blur.png"]
+                        Image {
+                            required property string modelData
+                            anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+                            source: root.active || root.leaving ? modelData : ""
+                        }
                     }
                 }
                 NumberAnimation on opacity { id: fadeIn; running: false; from: 0; to: 1; duration: 350; easing.type: Easing.InOutQuad }

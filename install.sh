@@ -12,7 +12,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="$HOME/.config-backup-tahoe-$STAMP"
 STATE="$HOME/.local/share/tahoe"
 
-NO_PKG=0; DRY=0; YES=0; UNINSTALL=0; LOGIN_WP=0; LOGIN_THEME=0
+NO_PKG=0; DRY=0; YES=0; UNINSTALL=0; LOGIN_WP=0; LOGIN_THEME=0; DOLPHIN=1
 for a in "$@"; do
   case "$a" in
     --no-packages) NO_PKG=1 ;;
@@ -21,6 +21,7 @@ for a in "$@"; do
     --uninstall)   UNINSTALL=1 ;;
     --login-wallpapers) LOGIN_WP=1 ;;
     --login-theme) LOGIN_THEME=1 ;;
+    --no-dolphin)  DOLPHIN=0 ;;
     -h|--help)
       cat <<EOF
 Tahoe Hyprland installer
@@ -28,6 +29,7 @@ Tahoe Hyprland installer
   --no-packages   do not install packages (files only)       / paket kurma
   --dry-run       print what would happen, change nothing     / sadece göster
   --yes           do not ask for confirmation                 / onay sorma
+  --no-dolphin    do not restyle Dolphin like Finder          / Dolphin görünümüne dokunma
   --login-wallpapers  also install the photos system-wide (sudo) so they can be chosen as the login-screen wallpaper
                   / fotoğrafları sisteme de kur (sudo): giriş ekranı duvar kağıdı olarak seçilebilsin
   --login-theme   switch the login manager to greetd + the Tahoe login screen (sudo; takes effect next boot;
@@ -51,6 +53,8 @@ run()  { if [ "$DRY" = 1 ]; then echo "   [dry-run] $*"; else "$@"; fi; }
 # ───────────────────────── uninstall ─────────────────────────
 if [ "$UNINSTALL" = 1 ]; then
   say "Removing Tahoe files…" "Tahoe dosyaları kaldırılıyor…"
+  # Dolphin ayarları, betikler silinmeden önce eski haline döndürülür
+  if [ -x "$HOME/.local/bin/tahoe-dolphin-setup" ]; then run "$HOME/.local/bin/tahoe-dolphin-setup" remove || true; fi
   for f in "$HOME"/.local/bin/tahoe-*; do
     if [ -e "$f" ]; then run rm -f "$f"; fi
   done
@@ -90,6 +94,8 @@ PKGS=(
   dbus gtk4-layer-shell python-fonttools python python-gobject python-cairo python-numpy python-pillow gtk4 libadwaita
   inter-font ttf-jetbrains-mono-nerd otf-font-awesome capitaine-cursors breeze-icons adwaita-icon-theme upower hwdata
 )
+# Dolphin (Finder görünümü): KDE renk/yazı tipi desteği ve pencere düğmeleri eklentisini derlemek için araçlar
+[ "$DOLPHIN" = 1 ] && PKGS+=(dolphin plasma-integration breeze kconfig knewstuff qt6-base gcc pkgconf zstd)
 [ "${NEED_GIT:-0}" = 1 ] && PKGS+=(git)
 if [ "$NO_PKG" = 0 ]; then
   say "Installing packages (sudo)…" "Paketler kuruluyor (sudo)…"
@@ -170,6 +176,13 @@ export PATH="$HOME/.local/bin:$PATH"
 if [ "$DRY" = 0 ]; then
   tahoe-settings --default-wallpaper
   tahoe-settings --apply
+  # oturum kapatma ve açılış perdesinin bulanık arka planı (Plymouth gerekmez)
+  python3 "$SRC/tools/make-blur.py" "$(ls "$SRC"/share/wallpapers/01-*.jpg | head -1)" "$STATE/login-blur.png" \
+    || warn "Could not create the blurred background." "Bulanık arka plan üretilemedi."
+fi
+if [ "$DOLPHIN" = 1 ]; then
+  say "Styling Dolphin like Finder…" "Dolphin, Finder görünümüne ayarlanıyor…"
+  run python3 "$SRC/bin/tahoe-dolphin-setup" apply "$SRC" || warn "Dolphin could not be styled." "Dolphin görünümü ayarlanamadı."
 fi
 
 if [ "$LOGIN_WP" = 1 ]; then

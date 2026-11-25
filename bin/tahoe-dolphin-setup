@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""Dolphin'e Finder görünümü kurar / kaldırır (yalnız kullanıcı klasörüne yazar, root gerekmez).
+  tahoe-dolphin-setup apply <depo-klasörü>    yedek alır, kurar (yeniden çalıştırılabilir; Qt güncellemesi sonrası da)
+  tahoe-dolphin-setup remove                  ilk kurulumdan önceki dosyaları geri getirir
+macOS tarzı simgeler (MacTahoe, GPL-3) indirilmez: depodaki paket (themes/icons) kullanıcı klasörüne açılır."""
+import json, os, re, shutil, subprocess, sys, tarfile, zlib
+
+HOME = os.path.expanduser('~')
+CFG = os.environ.get('XDG_CONFIG_HOME') or f'{HOME}/.config'
+DATA = os.environ.get('XDG_DATA_HOME') or f'{HOME}/.local/share'
+BACKUP = f'{DATA}/tahoe-dolphin-backup'          # kaldırırken silinen ~/.local/share/tahoe'nin DIŞINDA
+PLUGINS = f'{HOME}/.local/lib/tahoe/qtplugins'
+QSS = f'{CFG}/tahoe/dolphin-finder.qss'
+UIRC = f'{DATA}/kxmlgui5/dolphin/dolphinui.rc'
+DESKTOP = f'{DATA}/applications/org.kde.dolphin.desktop'
+SYSDESKTOP = '/usr/share/applications/org.kde.dolphin.desktop'
+SAVED = {'kdeglobals': f'{CFG}/kdeglobals', 'dolphinrc': f'{CFG}/dolphinrc', 'dolphinui.rc': UIRC,
+         'org.kde.dolphin.desktop': DESKTOP, 'dolphin-finder.qss': QSS}
+TOOLBAR = ['go_back', 'go_forward', 'url_navigators', 'icons', 'compact', 'details', 'split_view', 'split_stash',
+           'hamburger_menu', 'toggle_search']
+
+
+def note(msg): print('   ' + msg)
+
+
+def backup():
+    manifest = f'{BACKUP}/manifest.json'
+    if os.path.exists(manifest): return          # yalnız ilk kurulumda: sonraki çalıştırmalar asıl yedeği ezmesin
+    os.makedirs(BACKUP, exist_ok=True)
+    had = {}
+    for name, path in SAVED.items():
+        had[name] = os.path.exists(path)
+        if had[name]: shutil.copy2(path, f'{BACKUP}/{name}')
+    json.dump(had, open(manifest, 'w'), indent=1)
+
+
+def kw(file, groups, key, value):
+    cmd = ['kwriteconfig6', '--file', file]
+    for g in groups: cmd += ['--group', g]
+    subprocess.run(cmd + ['--key', key, '--', value], check=True)
+
+
+def has_theme(name):
+    return any(os.path.isdir(f'{d}/icons/{name}') for d in (DATA, '/usr/share', '/usr/local/share'))
+
+
+def icons(src):
+    """Depodaki MacTahoe paketini açar. Kullanıcıda zaten olan tema klasörlerine dokunulmaz; yalnız bizim açtıklarımız kaydedilir."""
+    archive = f'{src}/themes/icons/MacTahoe-icons.tar.xz'
+    wanted = [n for n in ('MacTahoe', 'MacTahoe-dark') if not has_theme(n)]
+    if not wanted or not os.path.exists(archive): return
+    dest = f'{DATA}/icons'
+    os.makedirs(dest, exist_ok=True)
+    try:
+        with tarfile.open(archive) as tar:
+            members = [m for m in tar.getmembers() if m.name.split('/')[0] in wanted]
+            tar.extractall(dest, members=members, filter='data')      # hedef dışına yazan/bağlanan girdiler reddedilir
+    except (OSError, tarfile.TarError, TypeError) as e:
+        note(f'simge paketi açılamadı: {e}'); return
+    record = f'{BACKUP}/icons.json'
+    done = json.load(open(record)) if os.path.exists(record) else []
+    json.dump(sorted(set(done + wanted)), open(record, 'w'))
+    for n in wanted:
+        if shutil.which('gtk-update-icon-cache'):
+            subprocess.run(['gtk-update-icon-cache', '-q', f'{dest}/{n}'], check=False)
+    note('MacTahoe simgeleri kuruldu (Vince Liuice, GPL-3)')
+
+
+def colors():
+    """Önce Breeze Dark şemasının TAMAMI (yalnız zemin değişirse temiz sistemde yazılar koyu kalır), sonra Finder tonları."""
+    groups = None
+    scheme = '/usr/share/color-schemes/BreezeDark.colors'
+    if os.path.exists(scheme):
+        for line in open(scheme, encoding='utf-8'):
+            line = line.strip()
+            if line.startswith('['):
+                parts = re.findall(r'\[([^\]]*)\]', line)
+                groups = parts if parts[0].startswith(('Colors:', 'ColorEffects:', 'WM')) else None
+            elif groups and '=' in line:
+                k, v = line.split('=', 1)
+                if '[' not in k: kw('kdeglobals', groups, k, v)
+    else:
+        note('BreezeDark renk şeması bulunamadı (breeze paketi?)')
+    for group, rgb in (('Colors:View', '30,31,41'), ('Colors:Window', '30,31,41'), ('Colors:Header', '30,31,41'), ('Colors:Button', '44,46,58')):
+        for key in ('BackgroundNormal', 'BackgroundAlternate'): kw('kdeglobals', [group], key, rgb)
+    for group in ('Colors:View', 'Colors:Window', 'Colors:Button'):
+        for key in ('DecorationFocus', 'DecorationHover'): kw('kdeglobals', [group], key, '10,132,255')
+    kw('kdeglobals', ['Colors:Selection'], 'BackgroundNormal', '10,132,255')
+    kw('kdeglobals', ['General'], 'AccentColor', '10,132,255')
+    font = 'Inter,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1'
+    for key in ('font', 'menuFont', 'toolBarFont'): kw('kdeglobals', ['General'], key, font)
+    kw('kdeglobals', ['General'], 'smallestReadableFont', font.replace(',10,', ',8,', 1))
+    if has_theme('MacTahoe-dark'):
+        kw('kdeglobals', ['Icons'], 'Theme', 'MacTahoe-dark')
+    else:
+        kw('kdeglobals', ['Icons'], 'Theme', 'breeze-dark')
+        note('MacTahoe simgeleri bulunamadı; Breeze koyu simgeleri kullanılıyor')
+
+
+def settings():
+    for group, key, value in (('General', 'RememberOpenedTabs', 'false'), ('General', 'ShowStatusBar', 'Disabled'),
+                              ('General', 'ShowZoomSlider', 'false'), ('General', 'ShowSelectionToggle', 'false'),
+                              ('PlacesPanel', 'IconSize', '16'), ('IconsMode', 'IconSize', '64'), ('IconsMode', 'PreviewSize', '64')):
+        kw('dolphinrc', [group], key, value)
+
+
+def embedded_ui():
+    """Araç çubuğu tanımı kurulu Dolphin'in içinden alınır (sürüme uygun kalsın diye depoda kopyası tutulmaz)."""
+    data = open(shutil.which('dolphin') or '/usr/bin/dolphin', 'rb').read()
+    for m in re.finditer(rb'\x78[\x01\x5e\x9c\xda]|\x28\xb5\x2f\xfd', data):
+        blob = data[m.start():m.start() + 40000]
+        try:
+            if blob[:1] == b'\x78': out = zlib.decompressobj().decompress(blob)
+            else: out = subprocess.run(['zstd', '-dcq'], input=blob, capture_output=True).stdout
+        except Exception:
+            continue
+        if b'<gui name="dolphin"' in out and b'url_navigators' in out and b'</gui>' in out:
+            start = out.find(b'<?xml')
+            if start < 0: start = max(out.find(b'<!DOCTYPE'), 0)
+            return out[start:out.find(b'</gui>') + 6].decode('utf-8')
+    return None
+
+
+def toolbar():
+    xml = embedded_ui()
+    a = xml.find('<ToolBar ') if xml else -1
+    if a < 0:
+        note('araç çubuğu tanımı okunamadı; Dolphin kendi araç çubuğunu kullanacak'); return
+    b = xml.index('</ToolBar>', a)
+    bar = '<ToolBar noMerge="1" name="mainToolBar" >\n        <text context="@title:menu">Main Toolbar</text>\n'
+    bar += ''.join(f'        <Action name="{n}" />\n' for n in TOOLBAR) + '    '
+    os.makedirs(os.path.dirname(UIRC), exist_ok=True)
+    open(UIRC, 'w', encoding='utf-8').write(xml[:a] + bar + xml[b:] + '\n')
+
+
+def plugin(src):
+    out = f'{PLUGINS}/generic'
+    try:
+        flags = subprocess.check_output(['pkg-config', '--cflags', '--libs', 'Qt6Widgets'], text=True).split()
+        os.makedirs(out, exist_ok=True)
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            for n in ('tahoetl.cpp', 'tahoetl.json'): shutil.copy(f'{src}/tools/dolphin/{n}', tmp)
+            subprocess.run(['/usr/lib/qt6/moc', 'tahoetl.cpp', '-o', 'tahoetl.moc'], cwd=tmp, check=True)
+            subprocess.run(['g++', '-std=c++17', '-O2', '-fPIC', '-shared', '-I.', 'tahoetl.cpp', '-o', f'{out}/libtahoetl.so.new'] + flags, cwd=tmp, check=True)
+        os.replace(f'{out}/libtahoetl.so.new', f'{out}/libtahoetl.so')
+    except (OSError, subprocess.CalledProcessError) as e:
+        note(f'pencere düğmeleri eklentisi derlenemedi ({e}); gcc, pkgconf ve qt6-base gerekli')
+
+
+def launcher():
+    if not os.path.exists(SYSDESKTOP): return
+    text = open(SYSDESKTOP, encoding='utf-8').read()
+    text = re.sub(r'^Exec=dolphin\b', f'Exec={HOME}/.local/bin/tahoe-dolphin', text, flags=re.M)
+    os.makedirs(os.path.dirname(DESKTOP), exist_ok=True)
+    open(DESKTOP, 'w', encoding='utf-8').write(text)
+
+
+def apply(src):
+    if not shutil.which('dolphin') or not shutil.which('kwriteconfig6'):
+        note('Dolphin ya da kwriteconfig6 yok; Finder görünümü atlandı'); return
+    backup()
+    icons(src); colors(); settings(); toolbar(); plugin(src); launcher()
+    os.makedirs(os.path.dirname(QSS), exist_ok=True)
+    shutil.copy(f'{src}/config/dolphin/finder.qss', QSS)
+    note(f'Dolphin Finder görünümü kuruldu (yedek: {BACKUP}). Açık Dolphin pencerelerini kapatıp yeniden açın.')
+
+
+def remove():
+    manifest = f'{BACKUP}/manifest.json'
+    if not os.path.exists(manifest): return
+    for name, had in json.load(open(manifest)).items():
+        path = SAVED[name]
+        if had: os.makedirs(os.path.dirname(path), exist_ok=True); shutil.copy2(f'{BACKUP}/{name}', path)
+        elif os.path.exists(path): os.remove(path)
+    shutil.rmtree(PLUGINS, ignore_errors=True)
+    record = f'{BACKUP}/icons.json'                       # yalnız bu betiğin açtığı simge temaları silinir
+    if os.path.exists(record):
+        for n in json.load(open(record)):
+            if n in ('MacTahoe', 'MacTahoe-dark'): shutil.rmtree(f'{DATA}/icons/{n}', ignore_errors=True)
+    shutil.rmtree(BACKUP)
+    note('Dolphin ayarları kurulumdan önceki haline döndürüldü')
+
+
+if __name__ == '__main__':
+    if len(sys.argv) == 3 and sys.argv[1] == 'apply': apply(os.path.abspath(sys.argv[2]))
+    elif sys.argv[1:] == ['remove']: remove()
+    else: sys.exit(__doc__)

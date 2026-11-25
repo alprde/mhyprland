@@ -1,0 +1,10 @@
+#!/bin/sh
+# Dolphin'i Finder görünümüyle açar: stil dosyası + pencere düğmeleri eklentisi. Eksik olan parça atlanır.
+LIB="$HOME/.local/lib/tahoe/qtplugins"
+QSS="${XDG_CONFIG_HOME:-$HOME/.config}/tahoe/dolphin-finder.qss"
+if [ -e "$LIB/generic/libtahoetl.so" ]; then
+  export QT_PLUGIN_PATH="$LIB${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}" QT_QPA_GENERIC_PLUGINS=tahoetl
+fi
+export QT_QPA_PLATFORMTHEME=kde
+[ -e "$QSS" ] && exec dolphin -stylesheet "$QSS" "$@"
+exec dolphin "$@"

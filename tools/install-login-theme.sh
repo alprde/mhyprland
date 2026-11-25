@@ -75,6 +75,12 @@ install -m 0644 "$HERE/greeter/wifi-off.png" "$ROOT/usr/local/share/tahoe-greete
 install -m 0644 "$HERE/greeter/ring.png" "$ROOT/usr/local/share/tahoe-greeter/ring.png"
 install -m 0755 "$HERE/tools/tahoe-session" "$ROOT/usr/local/bin/tahoe-session"
 install -m 0644 "$BG" "$ROOT/usr/share/tahoe/login-background.jpg"
+# giriş sırasındaki bulanık arka plan (Plymouth'tan bağımsız)
+if python3 -I "$HERE/tools/make-blur.py" "$BG" "$ROOT/usr/share/tahoe/login-blur.png"; then
+  chmod 0644 "$ROOT/usr/share/tahoe/login-blur.png"
+else
+  echo "UYARI: bulanık arka plan üretilemedi (python-pillow gerekli); giriş sırasında zemin siyah kalır."
+fi
 cat > "$GD/tahoe-greeter.conf" <<EOF
 [greeter]
 user=$UNAME
@@ -115,14 +121,15 @@ if [ -f "$PAMF" ] && [ -e "$ROOT/usr/lib/security/pam_gnome_keyring.so" ] && ! g
   mv "$PAMF.new" "$PAMF"; chmod 0644 "$PAMF"
 fi
 
-# Yeniden başlat/kapat ekranı (Plymouth): bulanık giriş duvar kâğıdı + halka. initramfs BİLEREK yeniden üretilmez
-# (açılış zincirine dokunulmaz); kapanış teması hemen, açılış teması bir sonraki çekirdek güncellemesinde devreye girer.
-if [ -d "$ROOT/usr/share/plymouth/themes/spinner" ] && [ -f "$ROOT/usr/lib/plymouth/script.so" ] && python3 -c 'import PIL' 2>/dev/null \
+# Yeniden başlat/kapat ekranı: yalnızca Plymouth ZATEN kuruluysa temalanır (isteğe bağlı; paket kurulmaz).
+# Açılış zincirine (çekirdek parametresi, initramfs) dokunulmaz: kapanış teması hemen, açılış teması bir sonraki
+# initramfs üretiminde devreye girer.
+if [ -d "$ROOT/usr/share/plymouth/themes/spinner" ] && [ -f "$ROOT/usr/lib/plymouth/script.so" ] \
    && python3 -I "$HERE/tools/make-plymouth-theme.py" "$ROOT/usr/share/plymouth/themes/spinner" "$ROOT/usr/share/plymouth/themes/tahoe" "$BG" >/dev/null; then
   if [ -z "$ROOT" ] && command -v plymouth-set-default-theme >/dev/null 2>&1; then
     prevply="$(plymouth-set-default-theme)"
     [ "$prevply" != tahoe ] && echo "$prevply" > "$GD/tahoe-prev-plymouth"
-    plymouth-set-default-theme tahoe
+    plymouth-set-default-theme tahoe || true
   fi
 fi
 

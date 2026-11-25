@@ -4,7 +4,10 @@
 local home = os.getenv("HOME")
 hl.env("PATH", home .. "/.local/bin:" .. (os.getenv("PATH") or "/usr/bin"))
 -- greetd gibi giriş yöneticileri ~/.local/bin'i PATH'e koymaz ve hl.env başlangıç komutlarına yansımıyor → komutlara PATH'i açıkça veriyoruz
-local P = "env XDG_MENU_PREFIX=plasma- PATH=" .. home .. "/.local/bin:" .. (os.getenv("PATH") or "/usr/bin") .. " "
+-- KDE uygulamaları (Dolphin vb.) kdeglobals'taki koyu renkleri ve simge temasını ancak KDE platform temasıyla okur
+-- (yoksa beyaz açılırlar). plasma-integration kurulu değilse Qt bu değişkeni yok sayar.
+hl.env("QT_QPA_PLATFORMTHEME", "kde")
+local P = "env XDG_MENU_PREFIX=plasma- QT_QPA_PLATFORMTHEME=kde PATH=" .. home .. "/.local/bin:" .. (os.getenv("PATH") or "/usr/bin") .. " "
 hl.env("XCURSOR_SIZE", "24")
 hl.env("XCURSOR_THEME", "capitaine-cursors")
 hl.env("GTK_THEME", "Tahoe")

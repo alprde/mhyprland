@@ -302,7 +302,7 @@ ShellRoot {
                     clip: true
                     Image {
                         anchors.fill: parent; fillMode: Image.PreserveAspectCrop
-                        source: "file:///usr/share/plymouth/themes/tahoe/background.png"
+                        source: "file:///usr/share/tahoe/login-blur.png"
                     }
                     Image {
                         anchors.centerIn: parent; width: 72 * parent.height / 1440; height: width

@@ -1,0 +1,32 @@
+/* Dolphin'i Finder görünümüne yaklaştıran stil (yalnız koyu tema). tahoe-dolphin ile uygulanır; "#tl_..." adlarını
+   pencere düğmeleri eklentisi (tools/dolphin/tahoetl.cpp) verir. */
+QMainWindow { background: #1e1f29; }
+QMainWindow::separator { background: transparent; width: 6px; }
+QToolBar { background: #1e1f29; border: none; padding: 8px 10px; spacing: 0px; }
+QToolBar QToolButton { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); border-radius: 16px;
+                       min-height: 28px; min-width: 30px; padding: 1px 5px; margin: 0px 4px; }
+QToolBar QToolButton:hover { background: rgba(255,255,255,0.11); }
+QToolBar QToolButton:checked { background: rgba(255,255,255,0.17); }
+/* düğme köşesindeki küçük menü oku simgeyi kaydırıyordu: gizle (basılı tutunca menü yine açılır) */
+QToolBar QToolButton::menu-indicator { image: none; width: 0px; height: 0px; }
+QToolBar QToolButton[popupMode="0"] { padding-right: 5px; }
+/* geri | ileri: tek hap, arada ince ayraç */
+/* Finder gibi: geri/ileri kenar çubuğunun sağında, içeriğin başında durur (soldaki alanı pencere düğmeleri eklentisi doldurur) */
+QToolBar QToolButton#tl_go_back  { margin-left: 0px; margin-right: 0px; border-top-right-radius: 0px; border-bottom-right-radius: 0px; min-width: 34px; }
+QToolBar QToolButton#tl_go_forward { margin-left: 0px; border-top-left-radius: 0px; border-bottom-left-radius: 0px; border-left: 1px solid rgba(255,255,255,0.16); min-width: 34px; margin-right: 10px; }
+/* görünüm seçici: bitişik üç parça */
+QToolBar QToolButton#tl_icons   { margin-right: 0px; border-right: none; border-top-right-radius: 0px; border-bottom-right-radius: 0px; min-width: 36px; }
+QToolBar QToolButton#tl_compact    { margin: 0px; border-left: none; border-right: none; border-radius: 0px; min-width: 36px; }
+QToolBar QToolButton#tl_details { margin-left: 0px; border-left: none; border-top-left-radius: 0px; border-bottom-left-radius: 0px; min-width: 36px; margin-right: 10px; }
+KUrlNavigator, KUrlNavigator * { background: transparent; border: none; }
+QDockWidget { border: none; titlebar-close-icon: none; }
+QDockWidget > QWidget { background: transparent; }
+PlacesPanel { background: #292b38; border: 1px solid rgba(255,255,255,0.09); border-radius: 16px; margin: 0px 2px 8px 8px; padding: 8px 6px;
+              selection-background-color: rgba(255,255,255,28); selection-color: white; outline: none; }
+PlacesPanel > QWidget { background: transparent; }
+QTabBar { height: 0px; }
+QStatusBar, DolphinStatusBar { height: 0px; }
+QFrame[frameShape="4"], QFrame[frameShape="5"] { color: transparent; }
+QScrollBar:vertical { background: transparent; width: 9px; }
+QScrollBar::handle:vertical { background: rgba(255,255,255,0.22); border-radius: 4px; min-height: 30px; }
+QScrollBar::add-line, QScrollBar::sub-line, QScrollBar::add-page, QScrollBar::sub-page { background: none; height: 0px; }

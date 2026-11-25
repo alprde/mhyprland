@@ -3,8 +3,8 @@
 üzerinde, kuyruğu yumuşakça sönen akıcı bir halka.
 Kullanım: make-plymouth-theme.py <spinner-tema-klasörü> <çıktı-klasörü> [arka-plan-resmi]
 Parola kutusu görselleri sistemdeki 'spinner' temasından kopyalanır; arka plan ve halka kareleri burada üretilir."""
-import math, os, shutil, sys
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
+import importlib.util, os, shutil, sys
+from PIL import Image, ImageDraw
 
 SRC, OUT = sys.argv[1], sys.argv[2]
 BG = sys.argv[3] if len(sys.argv) > 3 else ''
@@ -37,14 +37,10 @@ def frame(base, n):
     return im
 
 
-def background(path):
-    """Bulanık + karartılmış duvar kâğıdı; renk bantlanmasın diye çok hafif gren eklenir."""
-    im = Image.open(path).convert('RGB')
-    small = im.resize((640, round(640 * im.height / im.width)), Image.LANCZOS).filter(ImageFilter.GaussianBlur(14))
-    out = ImageEnhance.Color(small).enhance(1.15)
-    out = ImageEnhance.Brightness(out).enhance(0.55).resize((2560, round(2560 * im.height / im.width)), Image.BICUBIC)
-    noise = Image.effect_noise(out.size, 1.2)               # ortalaması 128
-    return ImageChops.add(out, Image.merge('RGB', (noise,) * 3), 1.0, -128)
+# bulanık arka plan kodu ortaktır (make-blur.py); "python3 -I" betik klasörünü yola eklemediği için dosyadan yüklenir
+_spec = importlib.util.spec_from_file_location('make_blur', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'make-blur.py'))
+_blur = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_blur)
+background = _blur.background
 
 
 os.makedirs(OUT, exist_ok=True)
