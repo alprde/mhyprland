@@ -35,6 +35,10 @@ if [ "$MODE" = restore ]; then
   prev="plasmalogin.service"; [ -f "$STATE" ] && prev="$(cat "$STATE")"
   echo "Eski giriş yöneticisine dönülüyor: $prev"
   [ -f "$GD/config.toml.tahoe-bak" ] && cp "$GD/config.toml.tahoe-bak" "$GD/config.toml"
+  # açılış/kapanış teması: kurulumdan öncekine dön
+  if [ -f "$GD/tahoe-prev-plymouth" ] && command -v plymouth-set-default-theme >/dev/null 2>&1 && [ -z "$ROOT" ]; then
+    plymouth-set-default-theme "$(cat "$GD/tahoe-prev-plymouth")" || true
+  fi
   sctl disable greetd.service || true
   sctl enable -f "$prev"
   echo "Tamam. Bir sonraki açılışta $prev kullanılacak."
@@ -108,6 +112,17 @@ if [ -f "$PAMF" ] && [ -e "$ROOT/usr/lib/security/pam_gnome_keyring.so" ] && ! g
   awk '{print} /^auth[ \t]+include/ && !a {print "auth       optional     pam_gnome_keyring.so"; a=1}' "$PAMF" > "$PAMF.new"
   echo "session    optional     pam_gnome_keyring.so auto_start" >> "$PAMF.new"
   mv "$PAMF.new" "$PAMF"; chmod 0644 "$PAMF"
+fi
+
+# Yeniden başlat/kapat ekranı (Plymouth): bulanık giriş duvar kâğıdı + halka. initramfs BİLEREK yeniden üretilmez
+# (açılış zincirine dokunulmaz); kapanış teması hemen, açılış teması bir sonraki çekirdek güncellemesinde devreye girer.
+if [ -d "$ROOT/usr/share/plymouth/themes/spinner" ] && [ -f "$ROOT/usr/lib/plymouth/script.so" ] && python3 -c 'import PIL' 2>/dev/null \
+   && python3 -I "$HERE/tools/make-plymouth-theme.py" "$ROOT/usr/share/plymouth/themes/spinner" "$ROOT/usr/share/plymouth/themes/tahoe" "$BG" >/dev/null; then
+  if [ -z "$ROOT" ] && command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    prevply="$(plymouth-set-default-theme)"
+    [ "$prevply" != tahoe ] && echo "$prevply" > "$GD/tahoe-prev-plymouth"
+    plymouth-set-default-theme tahoe
+  fi
 fi
 
 sctl enable -f greetd.service
