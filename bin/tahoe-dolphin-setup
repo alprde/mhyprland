@@ -100,7 +100,7 @@ def colors():
 def settings():
     for group, key, value in (('General', 'RememberOpenedTabs', 'false'), ('General', 'ShowStatusBar', 'Disabled'),
                               ('General', 'ShowZoomSlider', 'false'), ('General', 'ShowSelectionToggle', 'false'),
-                              ('PlacesPanel', 'IconSize', '16'), ('IconsMode', 'IconSize', '64'), ('IconsMode', 'PreviewSize', '64')):
+                              ('PlacesPanel', 'IconSize', '22'), ('IconsMode', 'IconSize', '64'), ('IconsMode', 'PreviewSize', '64')):
         kw('dolphinrc', [group], key, value)
 
 

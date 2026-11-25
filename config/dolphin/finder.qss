@@ -21,8 +21,11 @@ QToolBar QToolButton#tl_details { margin-left: 0px; border-left: none; border-to
 KUrlNavigator, KUrlNavigator * { background: transparent; border: none; }
 QDockWidget { border: none; titlebar-close-icon: none; }
 QDockWidget > QWidget { background: transparent; }
-PlacesPanel { background: #292b38; border: 1px solid rgba(255,255,255,0.09); border-radius: 16px; margin: 0px 2px 8px 8px; padding: 8px 6px;
-              selection-background-color: rgba(255,255,255,28); selection-color: white; outline: none; }
+/* Finder kenar çubuğu: yazı, boşluk ve seçili satır. Seçili satır düz gri hap, yazısı beyaz.
+   (Breeze seçim çerçevesini de bu renkle çizer; zemine yakın bir gri verilince çerçeve ayrı bir çizgi gibi görünmez.) */
+PlacesPanel { background: #25262e; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; margin: 0px 2px 8px 8px; padding: 8px 8px;
+              color: #e6e6ea; font-size: 10.5pt; font-weight: 500;
+              selection-background-color: #43444e; selection-color: white; outline: none; }
 PlacesPanel > QWidget { background: transparent; }
 QTabBar { height: 0px; }
 QStatusBar, DolphinStatusBar { height: 0px; }
