@@ -70,7 +70,7 @@ ShellRoot {
             root.launchCmd = ["/usr/local/bin/tahoe-session"].concat(cmd)
             // "launched" işareti (tahoe-greeter-run yedeğe düşmesin) + son seçilen oturum
             Quickshell.execDetached(["sh", "-c", "d=/var/cache/tahoe-greeter; : > $d/launched 2>/dev/null; printf %s '" + root.session + "' > $d/last-session 2>/dev/null"])
-            fadeOut.opacity = 1                     // giriş ekranı siyaha solar → perdenin siyahıyla birleşir
+            fadeOut.opacity = 1                     // bulanık görüntüye solar → açılış perdesi aynı görüntüyle sürdürür
             launchTimer.interval = 450; launchTimer.start()
         }
     }
@@ -288,11 +288,29 @@ ShellRoot {
                 }
             }
         }
-        // Şifre kabul edilince giriş ekranı bu örtüyle siyaha solar
-        Rectangle {
+        // Şifre kabul edilince giriş ekranı, yeniden başlat ekranının görüntüsüne (bulanık zemin + halka) solar
+        Item {
             id: fadeOut
-            anchors.fill: parent; color: "black"; opacity: 0
+            anchors.fill: parent; opacity: 0; visible: opacity > 0
             Behavior on opacity { NumberAnimation { duration: 380; easing.type: Easing.InOutQuad } }
+            Rectangle { anchors.fill: parent; color: "black" }       // zemin görseli yoksa siyah
+            Repeater {
+                model: scene.panes
+                delegate: Item {
+                    required property var modelData
+                    x: modelData.x; y: modelData.y; width: modelData.w; height: modelData.h
+                    clip: true
+                    Image {
+                        anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+                        source: "file:///usr/share/plymouth/themes/tahoe/background.png"
+                    }
+                    Image {
+                        anchors.centerIn: parent; width: 72 * parent.height / 1440; height: width
+                        source: Qt.resolvedUrl("ring.png"); smooth: true; mipmap: true
+                        RotationAnimator on rotation { from: 0; to: 360; duration: 1200; loops: Animation.Infinite; running: fadeOut.visible }
+                    }
+                }
+            }
         }
         Component.onCompleted: if (Quickshell.env("TAHOE_AUTOTEST") === "1") autotest.start()
         // yalnızca deneme: parolayı kendisi girer (TAHOE_AUTOTEST=1)

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Oturumu kapat: önce Quickshell'deki perde (siyah + dönen halka) gösterilir, o da Hyprland'den çıkar.
+# Quickshell çalışmıyorsa doğrudan çıkılır.
+qs -c tahoe ipc call session logout >/dev/null 2>&1 || exec hyprctl dispatch 'hl.dsp.exit()'

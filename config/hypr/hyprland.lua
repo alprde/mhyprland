@@ -97,7 +97,7 @@ hl.bind(mod .. " + F",      hl.dsp.window.fullscreen())
 hl.bind(mod .. " + M",      hl.dsp.window.move({ workspace = "special:minimized" }))   -- küçült
 hl.bind(mod .. " + SHIFT + M", hl.dsp.workspace.toggle_special("minimized"))        -- küçültülenleri göster/gizle
 hl.bind(mod .. " + Q",      hl.dsp.window.close())
-hl.bind(mod .. " + SHIFT + E", hl.dsp.exec_cmd("hyprctl dispatch 'hl.dsp.exit()'"))
+hl.bind(mod .. " + SHIFT + E", hl.dsp.exec_cmd(P .. "tahoe-logout"))
 hl.bind(mod .. " + V",      hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + J",      hl.dsp.layout("togglesplit"))
 hl.bind("Print", hl.dsp.exec_cmd(P .. "tahoe-shot-save region"))   -- Print: alan seç → dosya + pano

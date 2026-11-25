@@ -33,5 +33,5 @@ case "$choice" in
   "Yeniden Başlat") exec systemctl reboot ;;
   "Kapat") exec systemctl poweroff ;;
   "Ekranı Kilitle") exec hyprlock ;;
-  "Oturumu Kapat"*) exec hyprctl dispatch 'hl.dsp.exit()' ;;
+  "Oturumu Kapat"*) exec tahoe-logout ;;
 esac

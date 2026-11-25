@@ -75,7 +75,7 @@ PanelWindow {
         { label: "Kapat", cmd: "systemctl poweroff" },
         { sep: true },
         { label: "Ekranı Kilitle", shortcut: "⌃⌘ Q", cmd: "pidof hyprlock || hyprlock" },
-        { label: "Oturumu Kapat " + user, shortcut: "⇧⌘ E", cmd: "hyprctl dispatch 'hl.dsp.exit()'" }
+        { label: "Oturumu Kapat " + user, shortcut: "⇧⌘ E", cmd: "tahoe-logout" }
     ]
     readonly property var appItems: {
         const n = Sys.appName, a = Sys.activeAddress, has = a !== ""
