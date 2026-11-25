@@ -9,13 +9,14 @@ configuration {
     font: "Inter 14";
 }
 
-* { bg: #1e1e24b8; fg: #f5f5f7; sel: #ffffff22; background-color: transparent; text-color: @fg; }
+* { bg: #1e1e24b8; fg: #f5f5f7; sel: #ffffff22; muted: #f5f5f7a6; background-color: transparent; text-color: @fg; }
 
 window { location: north; anchor: north; y-offset: 18%; width: 640px; background-color: @bg; border: 1px; border-color: #ffffff22; border-radius: 22px; }
 mainbox { padding: 14px; spacing: 10px; children: [ inputbar, listview ]; }
 inputbar { padding: 12px 16px; background-color: #ffffff14; border-radius: 14px; spacing: 10px; children: [ prompt, entry ]; }
-prompt { text-color: #ffffffaa; }
-entry { placeholder: "Spotlight Araması"; placeholder-color: #ffffff66; }
+prompt { text-color: @muted; }
+// yazılan metin açıkça tema rengi: belirtilmezse rofi'nin varsayılanı (koyu zeminde okunmayan koyu renk) kullanılır
+entry { text-color: @fg; cursor-color: @fg; placeholder: "Spotlight Araması"; placeholder-color: @muted; }
 listview { lines: 7; columns: 1; fixed-height: false; spacing: 4px; scrollbar: false; border: 0; background-color: transparent; }
 element { padding: 10px 12px; border-radius: 12px; spacing: 12px; }
 element normal.normal, element alternate.normal, element normal.urgent, element alternate.urgent, element normal.active, element alternate.active { background-color: transparent; text-color: @fg; }

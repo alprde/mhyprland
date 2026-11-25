@@ -222,7 +222,7 @@ button:hover {{ background: rgba({ov},0.14); }}
     rc = f'{HOME}/.config/rofi/config.rasi'
     if os.path.exists(rc):
         t = open(rc).read()
-        t = re.sub(r'\* \{[^}]*\}', f'* {{ bg: {p["ROFI"]}; fg: {p["FG"]}; sel: {p["SEL"]}; background-color: transparent; text-color: @fg; }}', t, count=1)
+        t = re.sub(r'\* \{[^}]*\}', f'* {{ bg: {p["ROFI"]}; fg: {p["FG"]}; sel: {p["SEL"]}; muted: {p["FG"]}a6; background-color: transparent; text-color: @fg; }}', t, count=1)
         open(rc, 'w').write(t)
     ap = f'{HOME}/.config/rofi/apple.rasi'
     if os.path.exists(ap):
