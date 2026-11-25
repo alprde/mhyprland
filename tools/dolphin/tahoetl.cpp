@@ -29,7 +29,7 @@ public:
         add(row, "#ff5f57", QStringLiteral("×"), [win] { win->close(); });
         // komutlar etkin pencereye değil, bu sürecin penceresine gider
         const QString me = QStringLiteral("window = \"pid:%1\"").arg(QCoreApplication::applicationPid());
-        add(row, "#febc2e", QStringLiteral("−"), [me] { hypr("hl.dsp.window.move({ workspace = \"special:minimized\", " + me + " })"); });
+        add(row, "#febc2e", QStringLiteral("−"), [me] { hypr("hl.dsp.window.move({ workspace = \"special:minimized\", follow = false, " + me + " })"); });
         add(row, "#28c840", QStringLiteral("+"), [me] { hypr("hl.dsp.window.fullscreen({ " + me + " })"); });
         row->addStretch(1);
         paintButtons(false);

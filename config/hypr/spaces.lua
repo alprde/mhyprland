@@ -87,7 +87,7 @@ end
 local function on_monitor(name)
   local out = {}
   for _, w in ipairs(hl.get_workspaces()) do
-    if w.id > 0 and w.monitor and w.monitor.name == name then out[#out + 1] = w.id end
+    if w.id and w.id > 0 and w.monitor and w.monitor.name == name then out[#out + 1] = w.id end   -- özel alanda id yok (nil)
   end
   table.sort(out)
   return out
@@ -97,7 +97,7 @@ end
 local function adopt()
   local list = {}
   for _, w in ipairs(hl.get_workspaces()) do
-    if w.id > 0 and w.monitor and not owner(w.id) then list[#list + 1] = { id = w.id, mon = w.monitor.name, windows = w.windows } end
+    if w.id and w.id > 0 and w.monitor and not owner(w.id) then list[#list + 1] = { id = w.id, mon = w.monitor.name, windows = w.windows } end
   end
   table.sort(list, function(a, b) return a.id < b.id end)
   for _, w in ipairs(list) do

@@ -1658,7 +1658,7 @@ def traffic_lights(win):
         b = Gtk.Button(); b.add_css_class('tl'); b.add_css_class(cls); b.set_focusable(False)
         b.set_child(Gtk.Label(label=glyph)); b.connect('clicked', lambda *_: cb()); box.append(b)
     mk('tl-close', '×', win.close)
-    mk('tl-min', '−', lambda: sh("hyprctl dispatch 'hl.dsp.window.move({ workspace = \"special:minimized\" })'"))
+    mk('tl-min', '−', lambda: sh("hyprctl dispatch 'hl.dsp.window.move({ workspace = \"special:minimized\", follow = false })'"))
     mk('tl-max', '+', lambda: sh("hyprctl dispatch 'hl.dsp.window.fullscreen()'"))
     return box
 
@@ -2324,8 +2324,8 @@ def mc_collect(mon_name, grab=True):
     mw, mh = int(mon['width'] / scale), int(mon['height'] / scale)
     active = mon['activeWorkspace']['id']
     # yalnız BU ekranın masaüstleri (macOS: her ekranın Mission Control'ü kendi masaüstlerini gösterir)
-    ids = sorted({w['id'] for w in wss if w['id'] > 0 and w['monitor'] == mon['name']} | {active})
-    clients = [c for c in cls if c.get('mapped') and c['workspace']['id'] > 0]
+    ids = sorted({w['id'] for w in wss if w.get('id', 0) > 0 and w['monitor'] == mon['name']} | {active})   # özel alanda 'id' yok
+    clients = [c for c in cls if c.get('mapped') and c['workspace'].get('id', 0) > 0]
     shot = None
     try:
         if not grab: raise RuntimeError('ekran görüntüsü istenmedi')

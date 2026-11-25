@@ -98,7 +98,7 @@ hl.bind(mod .. " + ALT + Escape", hl.dsp.exec_cmd(P .. "tahoe-forcequit"))
 hl.bind(mod .. " + ALT + S", hl.dsp.exec_cmd(P .. "tahoe-shot-save full"))   -- Super+Alt+S: tüm ekran (tam çözünürlük) → dosya + pano
 hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd(P .. "tahoe-shot"))   -- Super+Shift+S: alan seç → Swappy düzenleyicisi (Ctrl+C kopyala, Ctrl+S kaydet)
 hl.bind(mod .. " + F",      hl.dsp.window.fullscreen())
-hl.bind(mod .. " + M",      hl.dsp.window.move({ workspace = "special:minimized" }))   -- küçült
+hl.bind(mod .. " + M",      hl.dsp.window.move({ workspace = "special:minimized", follow = false }))   -- küçült
 hl.bind(mod .. " + SHIFT + M", hl.dsp.workspace.toggle_special("minimized"))        -- küçültülenleri göster/gizle
 hl.bind(mod .. " + Q",      hl.dsp.window.close())
 hl.bind(mod .. " + SHIFT + E", hl.dsp.exec_cmd(P .. "tahoe-power logout"))

@@ -13,10 +13,10 @@ choice=$( {
 case "$choice" in
   *Hakkında) exec tahoe-settings --pane general ;;
   "Ayarlar…") exec tahoe-settings ;;
-  *Gizle) hyprctl dispatch 'hl.dsp.window.move({ workspace = "special:hidden" })' ;;
-  "Diğerlerini Gizle") hyprctl clients -j | jq -r --arg a "$(echo "$w" | jq -r .address)" '.[]|select(.address!=$a)|.address' | while read a; do hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:hidden\", window = \"address:$a\" })"; done ;;
+  *Gizle) hyprctl dispatch 'hl.dsp.window.move({ workspace = "special:hidden", follow = false })' ;;
+  "Diğerlerini Gizle") hyprctl clients -j | jq -r --arg a "$(echo "$w" | jq -r .address)" '.[]|select(.address!=$a)|.address' | while read a; do hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:hidden\", follow = false, window = \"address:$a\" })"; done ;;
   "Küçültülenleri Göster") hyprctl dispatch 'hl.dsp.workspace.toggle_special("minimized")' ;;
-  "Pencereyi Küçült") hyprctl dispatch 'hl.dsp.window.move({ workspace = "special:minimized" })' ;;
+  "Pencereyi Küçült") hyprctl dispatch 'hl.dsp.window.move({ workspace = "special:minimized", follow = false })' ;;
   Yakınlaştır*) hyprctl dispatch 'hl.dsp.window.fullscreen()' ;;
   "Yüzen Pencere") hyprctl dispatch 'hl.dsp.window.float({ action = "toggle" })' ;;
   "Pencereyi Kapat") hyprctl dispatch 'hl.dsp.window.close()' ;;

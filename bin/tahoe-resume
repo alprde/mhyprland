@@ -77,13 +77,14 @@ def command(client, apps):
 
 def collect():
     apps, seen, entries = desktop_files(), set(), []
-    for c in sorted(hypr('clients'), key=lambda c: (c['workspace']['id'], c['at'])):
-        if not c.get('mapped') or not c.get('class') or c['workspace']['id'] == -1: continue
+    # özel (küçültülen/gizlenen) masaüstlerinde 'id' alanı yoktur
+    for c in sorted(hypr('clients'), key=lambda c: (c['workspace'].get('id', -99), c['at'])):
+        if not c.get('mapped') or not c.get('class') or c['workspace'].get('id') == -1: continue
         cmd = command(c, apps)
         if not cmd: continue
         ws = c['workspace']
         # özel masaüstleri (küçültülen/gizlenen pencereler) adıyla, diğerleri numarasıyla
-        target = ws['name'] if ws['id'] < 0 else ws['id']
+        target = ws['name'] if ws.get('id', -99) < 0 else ws['id']
         # aynı sürecin birden çok penceresi (tarayıcı, kod düzenleyici): bir kez başlatılır, pencerelerini kendisi açar
         entries.append({'class': c['class'], 'workspace': target, 'cmd': cmd, 'launch': c['pid'] not in seen})
         seen.add(c['pid'])
@@ -140,7 +141,7 @@ def restore():
             match = next((e for e in pending if e['class'] == c['class']), None)
             if match:
                 pending.remove(match)
-                if c['workspace']['id'] != match['workspace']: move(c['address'], match['workspace'])
+                if c['workspace'].get('id', c['workspace']['name']) != match['workspace']: move(c['address'], match['workspace'])
 
 
 if __name__ == '__main__':
