@@ -150,14 +150,16 @@ PanelWindow {
         }
         Row {
             leftPadding: 8
+            // noktalar: yalnız BU ekranın masaüstleri (her ekranın listesi kendine ait)
             Repeater {
-                model: Math.max(4, Hyprland.workspaces.values.reduce((m, w) => Math.max(m, w.id), 0))
+                model: Hyprland.workspaces.values.filter(w => w.id > 0 && w.monitor && w.monitor.name === bar.screen.name).map(w => w.id).sort((a, b) => a - b)
                 delegate: BarButton {
-                    required property int index
-                    readonly property bool on: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === index + 1
-                    text: on ? "" : ""; family: Theme.nerd; pixelSize: 13; hpad: 0; minW: 24; yOffset: -0.6
+                    required property int modelData
+                    readonly property var mon: Hyprland.monitorFor(bar.screen)
+                    readonly property bool on: !!mon && !!mon.activeWorkspace && mon.activeWorkspace.id === modelData
+                    text: on ? "\uf111" : "\uf10c"; family: Theme.nerd; pixelSize: 13; hpad: 0; minW: 24; yOffset: -0.6
                     color: on ? Theme.fg : Theme.fgDim
-                    onClicked: bar.dispatch("hl.dsp.focus({ workspace = " + (index + 1) + " })")
+                    onClicked: bar.dispatch("hl.dsp.focus({ workspace = " + modelData + " })")
                 }
             }
         }

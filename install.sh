@@ -138,6 +138,7 @@ run mkdir -p "$HOME/.local/share/fonts"
 if [ "$DRY" = 0 ]; then python3 "$SRC/tools/make-icon-font.py" "$HOME/.local/share/fonts/TahoeIcons.ttf" && fc-cache -f "$HOME/.local/share/fonts" >/dev/null 2>&1 || true; fi
 run cp "$SRC/themes/Tahoe/index.theme" "$HOME/.themes/Tahoe/index.theme"
 run cp "$SRC/config/hypr/hyprland.lua" "$HOME/.config/hypr/hyprland.lua"
+run cp "$SRC/config/hypr/spaces.lua" "$HOME/.config/hypr/spaces.lua"
 for t in hyprlock.conf hyprpaper.conf; do
   if [ "$DRY" = 1 ]; then echo "   [dry-run] template $t"; else sed "s|__HOME__|$HOME|g" "$SRC/config/hypr/$t.tpl" > "$HOME/.config/hypr/$t"; fi
 done

@@ -1493,7 +1493,7 @@ LAYOUTS = [('tr', 'Türkçe Q'), ('us', 'İngilizce (ABD)'), ('gb', 'İngilizce 
 def page_shortcuts():
     pg = Adw.PreferencesPage()
     for title, rows in [
-        ('Mission Control', [('⌘ Tab', 'Mission Control (tüm masaüstleri ve pencereler)'), ('⌘ ⌃ ↑', 'Mission Control'), ('⌘ ⌃ ← / →', 'Önceki / sonraki masaüstü'), ('⌘ 1…0', 'Masaüstüne geç'), ('⌘ Shift 1…0', 'Pencereyi masaüstüne taşı')]),
+        ('Mission Control', [('⌘ Tab', 'Mission Control (tüm masaüstleri ve pencereler)'), ('⌘ ⌃ ↑', 'Mission Control'), ('⌘ ⌃ ← / →', 'Önceki / sonraki masaüstü'), ('⌘ 1…0', 'Bu ekranın masaüstüne geç'), ('⌘ Shift 1…0', 'Pencereyi masaüstüne taşı')]),
         ('Pencereler', [('⌘ ⌥ Tab', 'Pencere listesi'), ('⌘ Q', 'Pencereyi kapat'), ('⌘ F', 'Tam ekran'), ('⌘ V', 'Yüzen pencere')]),
         ('Ekran Görüntüleri', [('⌘ Alt S', 'Tüm ekranın görüntüsü'), ('⌘ Shift S', 'Alan seç, düzenle (Swappy): Ctrl+C kopyala, Ctrl+S kaydet'), ('Print', 'Seçili alanın görüntüsü (Resimler/Ekran Görüntüleri)')]),
         ('Uygulamalar', [('⌘ Enter', 'Terminal'), ('⌘ B', 'Firefox'), ('⌘ C', 'VS Code'), ('⌘ Space / ⌘ D', 'Spotlight'), ('⌘ ,', 'Sistem Ayarları')]),
@@ -2303,6 +2303,8 @@ button.mc-space:hover { background: rgba(255,255,255,0.14); }
 button.mc-space.sel { border-color: #0a84ff; background: rgba(255,255,255,0.12); }
 button.mc-add { background: rgba(255,255,255,0.08); border: 2px dashed rgba(255,255,255,0.35); border-radius: 12px; min-width: 110px; box-shadow: none; background-image: none; font-size: 28px; color: rgba(255,255,255,0.8); }
 button.mc-add:hover { background: rgba(255,255,255,0.18); }
+button.mc-close { min-width: 22px; min-height: 22px; padding: 0; border-radius: 11px; border: none; background: rgba(60,60,66,0.95); background-image: none; box-shadow: 0 1px 4px rgba(0,0,0,0.5); color: white; font-size: 11px; font-weight: bold; }
+button.mc-close:hover { background: rgba(95,95,102,0.98); }
 button.mc-card.drop { border-color: #0a84ff; background: rgba(10,132,255,0.22); }
 button.mc-space.drop, button.mc-add.drop { border-color: #0a84ff; background: rgba(10,132,255,0.28); }
 button.mc-card { background: rgba(255,255,255,0.07); border: 2px solid transparent; border-radius: 14px; padding: 10px; box-shadow: none; background-image: none; }
@@ -2321,7 +2323,8 @@ def mc_collect(mon_name, grab=True):
     scale = mon['scale'] or 1.0
     mw, mh = int(mon['width'] / scale), int(mon['height'] / scale)
     active = mon['activeWorkspace']['id']
-    ids = sorted({w['id'] for w in wss if w['id'] > 0} | {active})
+    # yalnız BU ekranın masaüstleri (macOS: her ekranın Mission Control'ü kendi masaüstlerini gösterir)
+    ids = sorted({w['id'] for w in wss if w['id'] > 0 and w['monitor'] == mon['name']} | {active})
     clients = [c for c in cls if c.get('mapped') and c['workspace']['id'] > 0]
     shot = None
     try:
@@ -2432,18 +2435,28 @@ class MissionControl(Gtk.ApplicationWindow):
 
     def build(self, data):
         self.data = data; self.clear(self.bar); self.thumbs = {}
-        for wid in data['ids']:
+        for pos, wid in enumerate(data['ids'], 1):
             b = Gtk.Button(); b.add_css_class('mc-space'); b.set_focusable(False)
             v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
             v.append(WsThumb(data, wid))
             n = sum(1 for c in data['clients'] if c['workspace']['id'] == wid)
-            lb = Gtk.Label(label=f'Masaüstü {wid}' + (f'  ·  {n} pencere' if n else '  ·  boş')); lb.add_css_class('mc-title'); v.append(lb)
+            lb = Gtk.Label(label=f'Masaüstü {pos}' + (f'  ·  {n} pencere' if n else '  ·  boş')); lb.add_css_class('mc-title'); v.append(lb)
             b.set_child(v); b.connect('clicked', lambda _b, w=wid: self.daemon.mc_goto(w))
             mc = Gtk.EventControllerMotion(); mc.connect('enter', lambda *_a, w=wid: self.select(w)); b.add_controller(mc)
             self.drop_target(b, wid)
-            self.bar.append(b); self.thumbs[wid] = b
+            ov = Gtk.Overlay(); ov.set_child(b)
+            if len(data['ids']) > 1:   # macOS: imleç küçük resmin üstündeyken sol üstte silme düğmesi
+                x = Gtk.Button(label='✕'); x.add_css_class('mc-close'); x.set_focusable(False); x.set_tooltip_text('Masaüstünü sil')
+                x.set_halign(Gtk.Align.START); x.set_valign(Gtk.Align.START); x.set_visible(False)
+                x.connect('clicked', lambda _b, w=wid: self.daemon.mc_remove(self, w))
+                ov.add_overlay(x)
+                hv = Gtk.EventControllerMotion()
+                hv.connect('enter', lambda *_a, xx=x: xx.set_visible(True))
+                hv.connect('leave', lambda *_a, xx=x: xx.set_visible(False))
+                ov.add_controller(hv)
+            self.bar.append(ov); self.thumbs[wid] = b
         add = Gtk.Button(label='+'); add.add_css_class('mc-add'); add.set_focusable(False); add.set_tooltip_text('Yeni masaüstü')
-        add.connect('clicked', lambda *_: self.daemon.mc_goto(max(data['ids']) + 1)); self.drop_target(add, max(data['ids']) + 1); self.bar.append(add)
+        add.connect('clicked', lambda *_: self.daemon.mc_add(self)); self.drop_target(add, None); self.bar.append(add)
         self.select(data['active'])
 
     def drop_target(self, btn, ws):
@@ -2451,7 +2464,7 @@ class MissionControl(Gtk.ApplicationWindow):
         dt = Gtk.DropTarget.new(str, Gdk.DragAction.MOVE)
         dt.connect('enter', lambda *_: (btn.add_css_class('drop'), Gdk.DragAction.MOVE)[1])
         dt.connect('leave', lambda *_: btn.remove_css_class('drop'))
-        dt.connect('drop', lambda t, val, x, y: (btn.remove_css_class('drop'), self.daemon.mc_move(self, val, ws), True)[2])
+        dt.connect('drop', lambda t, val, x, y: (btn.remove_css_class('drop'), self.daemon.mc_move(self, val, ws) if ws else self.daemon.mc_add(self, val), True)[2])
         btn.add_controller(dt)
 
     def drag_begin(self, src, card):
@@ -2672,6 +2685,24 @@ class CCDaemon:
         if not re.fullmatch(r'0x[0-9a-fA-F]+', str(address)): return
         sh(f"hyprctl dispatch 'hl.dsp.window.move({{ workspace = {int(ws)}, follow = false, window = \"address:{address}\" }})'")
         GLib.timeout_add(180, lambda: (mc.refresh(), False)[1])
+
+    def mc_add(self, mc, address=None):
+        """Bu ekrana yeni masaüstü ekle (+ üzerine pencere bırakıldıysa onu da taşı); Mission Control açık kalır."""
+        name = mc.gmon.get_connector() if mc.gmon else ''
+        if not re.fullmatch(r'[\w-]+', name): return
+        if address is not None and not re.fullmatch(r'0x[0-9a-fA-F]+', str(address)): return
+        arg = f'"{name}"' + (f', "{address}"' if address else '')
+        sh(f"hyprctl eval 'TahoeSpaces.add({arg})'")
+        GLib.timeout_add(180, lambda: (mc.refresh(), False)[1])
+
+    def mc_remove(self, mc, ws):
+        """Masaüstünü sil; pencereleri komşu masaüstüne geçer."""
+        sh(f"hyprctl eval 'TahoeSpaces.remove({int(ws)})'")
+        def again():
+            # etkin masaüstü silindiyse eski ekran görüntüsü artık geçersiz → görüntüsüz yeniden çiz
+            if mc.data and mc.data['active'] == ws: mc.data['shot'] = None
+            mc.refresh(); return False
+        GLib.timeout_add(250, again)
 
     def mc_swap(self, mc, a, b):
         """İki pencerenin yerini değiştir (aynı masaüstünde)."""

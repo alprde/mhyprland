@@ -56,21 +56,26 @@ hl.config({
 })
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+hl.config({ gestures = { workspace_swipe_create_new = false, workspace_swipe_forever = false } })   -- kaydırma yeni masaüstü açmaz
 hl.gesture({ fingers = 3, direction = "up", action = function() hl.exec_cmd(P .. "tahoe-cc mission") end })   -- 3 parmak yukarı: Mission Control
 hl.bind(mod .. " + CTRL + up", hl.dsp.exec_cmd(P .. "tahoe-cc mission"))      -- Super+Ctrl+Yukarı: Mission Control
 
--- Masaüstleri arasında geçiş (tıklamasız)
-hl.bind(mod .. " + CTRL + left",  hl.dsp.focus({ workspace = "-1" }))   -- önceki masaüstü (1'de durur)
-hl.bind(mod .. " + CTRL + right", hl.dsp.focus({ workspace = "+1" }))   -- sonraki masaüstü (boş olana da geçer)
-hl.bind(mod .. " + mouse_down",   hl.dsp.focus({ workspace = "+1" }))   -- Super + tekerlek aşağı
-hl.bind(mod .. " + mouse_up",     hl.dsp.focus({ workspace = "-1" }))   -- Super + tekerlek yukarı
+-- Masaüstleri macOS "Spaces" gibi çalışır (ayrıntı: spaces.lua): her ekranın kendi listesi vardır, geçiş yalnızca
+-- odaktaki ekranı değiştirir ve uçlarda durur; masaüstü Mission Control'den eklenip silinir.
+local spaces = require("spaces")
+local function next_desktop() spaces.step(1) end
+local function prev_desktop() spaces.step(-1) end
+hl.bind(mod .. " + CTRL + left",  prev_desktop)
+hl.bind(mod .. " + CTRL + right", next_desktop)
+hl.bind(mod .. " + mouse_down",   next_desktop)   -- Super + tekerlek aşağı
+hl.bind(mod .. " + mouse_up",     prev_desktop)   -- Super + tekerlek yukarı
 
 -- Fare tekerleğinin yana yatırılması (tilt) → masaüstü değiştir. Yalnızca adı aşağıdaki listede olan fareye bağlanır
 -- (dokunmatik yüzeyin yatay kaydırması etkilenmez, listede olmayan fareler için bu satırlar hiçbir şey yapmaz).
 -- Kendi farenizin adı için: hyprctl devices  (mice bölümü) ve listeye ekleyin.
 local tilt_mouse = { device = { inclusive = true, list = { "logitech-g502-x-plus-1", "logitech-g502-x-plus" } } }
-hl.bind("mouse_right", hl.dsp.focus({ workspace = "+1" }), tilt_mouse)   -- sağa yatır → sonraki masaüstü
-hl.bind("mouse_left",  hl.dsp.focus({ workspace = "-1" }), tilt_mouse)   -- sola yatır → önceki masaüstü
+hl.bind("mouse_right", next_desktop, tilt_mouse)   -- sağa yatır → sonraki masaüstü
+hl.bind("mouse_left",  prev_desktop, tilt_mouse)   -- sola yatır → önceki masaüstü
 
 hl.bind(mod .. " + Return", hl.dsp.exec_cmd(terminal))
 hl.bind(mod .. " + B",      hl.dsp.exec_cmd("firefox"))                                  -- tarayıcı
@@ -104,8 +109,8 @@ hl.bind(mod .. " + down",  hl.dsp.focus({ direction = "down" }))
 
 for i = 1, 10 do
   local key = i % 10
-  hl.bind(mod .. " + " .. key,         hl.dsp.focus({ workspace = i }))
-  hl.bind(mod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
+  hl.bind(mod .. " + " .. key,         function() spaces.go(i) end)     -- odaktaki ekranın i. masaüstü
+  hl.bind(mod .. " + SHIFT + " .. key, function() spaces.move(i) end)
 end
 
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
