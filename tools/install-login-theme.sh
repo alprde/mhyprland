@@ -72,6 +72,7 @@ mkdir -p "$ROOT/usr/local/share/tahoe-greeter"
 install -m 0644 "$HERE/greeter/shell.qml" "$ROOT/usr/local/share/tahoe-greeter/shell.qml"
 install -m 0644 "$HERE/greeter/wifi-on.png" "$ROOT/usr/local/share/tahoe-greeter/wifi-on.png"
 install -m 0644 "$HERE/greeter/wifi-off.png" "$ROOT/usr/local/share/tahoe-greeter/wifi-off.png"
+install -m 0644 "$HERE/greeter/ring.png" "$ROOT/usr/local/share/tahoe-greeter/ring.png"
 install -m 0755 "$HERE/tools/tahoe-session" "$ROOT/usr/local/bin/tahoe-session"
 install -m 0644 "$BG" "$ROOT/usr/share/tahoe/login-background.jpg"
 cat > "$GD/tahoe-greeter.conf" <<EOF

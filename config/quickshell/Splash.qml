@@ -20,6 +20,7 @@ Scope {
     Variants {
         model: Quickshell.screens
         PanelWindow {
+            id: win
             required property var modelData
             screen: modelData
             anchors { top: true; bottom: true; left: true; right: true }
@@ -34,22 +35,14 @@ Scope {
             Item {
                 id: stage
                 anchors.fill: parent
-                // ekranın ortasında 12 çubuklu macOS tarzı çark
-                Item {
-                    id: spin
-                    width: 44; height: 44
+                // ekranın ortasında dönen halka (yeniden başlat ekranındakiyle aynı)
+                Image {
+                    // boyut Plymouth'taki halkayla aynı: 1440 piksel yüksekliğindeki ekranda 72 fiziksel piksel
+                    width: 72 * win.screen.height / 1440; height: width
                     anchors.centerIn: parent
-                    property int step: 0
-                    Timer { interval: 80; running: root.active; repeat: true; onTriggered: spin.step = (spin.step + 1) % 12 }
-                    Repeater {
-                        model: 12
-                        Rectangle {
-                            width: 3.4; height: 10; radius: 1.7; color: "white"
-                            x: spin.width / 2 - width / 2; y: 0
-                            transform: Rotation { origin.x: width / 2; origin.y: spin.height / 2; angle: index * 30 }
-                            opacity: Math.max(0.2, 1 - ((spin.step - index + 12) % 12) / 8)
-                        }
-                    }
+                    source: Qt.resolvedUrl("ring.png"); smooth: true; mipmap: true
+                    // ekran yenileme hızında döner (bir tur 1,2 sn)
+                    RotationAnimator on rotation { from: 0; to: 360; duration: 1200; loops: Animation.Infinite; running: root.active }
                 }
                 // ~2 sn sonra masaüstüne doğru solar
                 SequentialAnimation on opacity {

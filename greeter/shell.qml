@@ -272,20 +272,16 @@ ShellRoot {
                             MouseArea { anchors.fill: parent; cursorShape: Qt.IBeamCursor; acceptedButtons: Qt.NoButton }
                         }
                     }
-                    // macOS tarzı 12 çubuklu çark
-                    Item {
-                        id: spin; visible: root.busy; anchors.centerIn: parent; width: 26 * pane.sc; height: width
-                        property int step: 0
-                        Timer { interval: 80; running: root.busy; repeat: true; onTriggered: spin.step = (spin.step + 1) % 12 }
-                        Repeater {
-                            model: 12
-                            Rectangle {
-                                width: 2.4 * pane.sc; height: 6 * pane.sc; radius: width / 2; color: "white"
-                                x: spin.width / 2 - width / 2; y: 0
-                                transform: Rotation { origin.x: width / 2; origin.y: spin.height / 2; angle: index * 30 }
-                                opacity: Math.max(0.2, 1 - ((spin.step - index + 12) % 12) / 8)
-                            }
-                        }
+                    // doğrulanırken dönen halka (yeniden başlat ekranındakiyle aynı)
+                    // açık renkli fotoğraf üstünde ince halka seçilsin diye parola alanıyla aynı tonda koyu daire
+                    Rectangle {
+                        visible: root.busy; anchors.centerIn: parent; width: parent.height; height: width; radius: width / 2
+                        color: Qt.rgba(20 / 255, 40 / 255, 70 / 255, 0.5)
+                    }
+                    Image {
+                        visible: root.busy; anchors.centerIn: parent; width: 24 * pane.sc; height: width
+                        source: Qt.resolvedUrl("ring.png"); smooth: true; mipmap: true
+                        RotationAnimator on rotation { from: 0; to: 360; duration: 1200; loops: Animation.Infinite; running: root.busy }
                     }
                 }
             }
