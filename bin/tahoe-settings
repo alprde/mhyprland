@@ -284,7 +284,12 @@ def write_shader():
     return path
 
 def apply_hypr():
-    mons = get_monitors()
+    live = get_monitors()
+    # Kayıtlı ama şu an takılı olmayan ekranların kuralı da yazılır: yalnız takılı olanlar yazılırsa,
+    # harici ekran yokken uygulanan her ayar onun konum/mod bilgisini siler (takınca varsayılana döner).
+    seen = {m['name'] for m in live}
+    mons = live + [{'name': n} for n, c in S['monitors'].items()
+                   if n not in seen and 'mode' in c and not n.startswith(('HEADLESS', 'WL-'))]
     allnames = [m['name'] for m in mons]
     names, prim, pos = compute_layout(mons)
     arr = S['arrange']

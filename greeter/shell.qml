@@ -12,11 +12,12 @@ ShellRoot {
     // ---- yapılandırma (tahoe-greeter-info çıktısı) ----
     property var info: ({ user: "", session: "", sessions: [], lang: "en", background: "", scale: 1.1, battery: "", net: "", layout: "ABC" })
     readonly property bool tr: info.lang === "tr"
-    readonly property real sc: info.scale || 1.1
     property string session: info.session
     property bool busy: false
     property bool wrong: false
-    property bool menuOpen: false
+    property int menuPane: -1               // oturum menüsü hangi ekranda açık (-1: kapalı)
+    property string pw: ""                  // parola metni: tüm ekranlardaki alanlar bunu paylaşır
+    signal refocus()
     property date now: new Date()
 
     Process {
@@ -53,7 +54,7 @@ ShellRoot {
         id: demoTimer; interval: 700
         onTriggered: { if (root.pendingPw === "pass") { fadeOut.opacity = 1; launchTimer.interval = 450; launchTimer.start() } else root.fail() }
     }
-    function fail() { root.busy = false; root.wrong = true; root.pendingPw = ""; field.text = ""; field.forceActiveFocus() }
+    function fail() { root.busy = false; root.wrong = true; root.pendingPw = ""; root.pw = ""; root.refocus() }
     Connections {
         target: Greetd
         function onAuthMessage(message, error, responseRequired, echoResponse) {
@@ -88,174 +89,208 @@ ShellRoot {
         visible: true
         color: "#0b1b2b"
         title: "tahoe-greeter"
-        // Tüm içerik tek bir Item içinde: grabToImage için QML motoruna bağlı bir öğe gerekir (contentItem olmuyor)
+        // cage ("extend" kipi) tek pencereyi TÜM ekranların toplam alanına yayar. Bu yüzden her ekran için ayrı bir bölme
+        // çizilir; pencere tüm ekranları kaplamıyorsa (demo, tek ekran) pencerenin tamamı tek bölmedir.
         Item {
-        id: scene
-        anchors.fill: parent
-
-        Image {
+            id: scene
             anchors.fill: parent
-            source: root.info.background ? "file://" + root.info.background : ""
-            fillMode: Image.PreserveAspectCrop
-        }
-        // Boş alana tıklanınca oturum menüsü kapansın
-        MouseArea { anchors.fill: parent; onClicked: { root.menuOpen = false; field.forceActiveFocus() } }
+            readonly property var panes: {
+                const list = Quickshell.screens
+                let x0 = 0, y0 = 0, x1 = 0, y1 = 0
+                for (let i = 0; i < list.length; i++) {
+                    const m = list[i]
+                    x0 = i ? Math.min(x0, m.x) : m.x; y0 = i ? Math.min(y0, m.y) : m.y
+                    x1 = i ? Math.max(x1, m.x + m.width) : m.x + m.width; y1 = i ? Math.max(y1, m.y + m.height) : m.y + m.height
+                }
+                if (list.length < 2 || width < x1 - x0 - 2 || height < y1 - y0 - 2) return [{ x: 0, y: 0, w: width, h: height }]
+                const out = []
+                for (let i = 0; i < list.length; i++) out.push({ x: list[i].x - x0, y: list[i].y - y0, w: list[i].width, h: list[i].height })
+                return out
+            }
+            Repeater {
+                model: scene.panes
+                delegate: Item {
+                    id: pane
+                    required property var modelData
+                    required property int index
+                    x: modelData.x; y: modelData.y; width: modelData.w; height: modelData.h
+                    clip: true
+                    // otomatik ölçek: ekranın kısa kenarına orantılı (1440 pikselde yapılandırmadaki değer, vars. 1.1)
+                    readonly property real sc: (root.info.scale || 1.1) * Math.max(0.45, Math.min(width, height) / 1440)
 
-        // ---- saat ve tarih ----
-        Column {
-            anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 90 * root.sc }
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: root.dateText; font { family: "Inter"; weight: Font.DemiBold; pixelSize: 26 * root.sc }
-                color: Qt.rgba(190 / 255, 225 / 255, 1, 0.92)
+            Image {
+                anchors.fill: parent
+                source: root.info.background ? "file://" + root.info.background : ""
+                fillMode: Image.PreserveAspectCrop
             }
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: root.clockText; font { family: "Inter"; weight: Font.Bold; pixelSize: 150 * root.sc }
-                color: Qt.rgba(190 / 255, 225 / 255, 1, 0.82)
-            }
-        }
+            // Boş alana tıklanınca oturum menüsü kapansın
+            MouseArea { anchors.fill: parent; onClicked: { root.menuPane = -1; field.forceActiveFocus() } }
 
-        // ---- sağ üst durum: oturum, klavye, pil, ağ ----
-        Row {
-            anchors { right: parent.right; top: parent.top; rightMargin: 22 * root.sc; topMargin: 12 * root.sc }
-            spacing: 14 * root.sc
-            Text {
-                text: root.sessionName; color: "white"; font { family: "Inter"; weight: Font.DemiBold; pixelSize: 13 * root.sc }
-                anchors.verticalCenter: parent.verticalCenter
-                MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor; onClicked: root.menuOpen = !root.menuOpen }
-            }
-            Text { text: root.info.layout; color: "white"; font { family: "Inter"; weight: Font.DemiBold; pixelSize: 13 * root.sc }
-                anchors.verticalCenter: parent.verticalCenter }
-            // Pil ve ağ simgeleri Canvas ile çizilir (yazı tipi glifleri/sembolik SVG güvenilir değildi)
-            Canvas {
-                id: batIcon
-                visible: root.info.battery !== ""
-                width: 27 * root.sc; height: 16.2 * root.sc
-                anchors.verticalCenter: parent.verticalCenter
-                property int level: { const m = /battery-level-(\d+)/.exec(root.info.battery || ""); return m ? parseInt(m[1]) : 0 }
-                property bool charging: (root.info.battery || "").indexOf("charging") >= 0
-                onLevelChanged: requestPaint(); onChargingChanged: requestPaint(); onWidthChanged: requestPaint()
-                onPaint: {
-                    const c = getContext("2d"); c.reset(); const u = height / 18
-                    c.strokeStyle = "white"; c.fillStyle = "white"; c.lineWidth = 1.6 * u; c.globalAlpha = 0.9
-                    // gövde + uç
-                    c.beginPath(); c.roundedRect(1 * u, 2 * u, 24 * u, 14 * u, 4 * u, 4 * u); c.stroke()
-                    c.beginPath(); c.roundedRect(26 * u, 6.5 * u, 2.4 * u, 5 * u, 1.2 * u, 1.2 * u); c.fill()
-                    // doluluk
-                    const w = Math.max(2 * u, 19 * u * Math.min(100, level) / 100)
-                    c.globalAlpha = 1; c.beginPath(); c.roundedRect(3.5 * u, 4.5 * u, w, 9 * u, 2 * u, 2 * u); c.fill()
-                    if (charging) {   // şarj şimşeği (koyu zeminli)
-                        c.fillStyle = "#1c2030"; c.beginPath()
-                        c.moveTo(14.5 * u, 3.5 * u); c.lineTo(9 * u, 10.5 * u); c.lineTo(12.5 * u, 10.5 * u); c.lineTo(11 * u, 14.5 * u)
-                        c.lineTo(17 * u, 7.5 * u); c.lineTo(13.5 * u, 7.5 * u); c.closePath(); c.fill()
-                    }
-                }
-            }
-            // Ağ: Wi-Fi bağlı/değil simgeleri aynı Nerd Font glifinden üretilmiş PNG'ler (tools/make-wifi-icons.py): kalınlık ve boyut birebir aynı.
-            // Kablolu bağlantıda glif doğrudan yazı olarak çizilir.
-            Item {
-                id: netIcon
-                anchors.verticalCenter: parent.verticalCenter
-                property string kind: (root.info.net || "").indexOf("wired") >= 0 ? "wired" : (root.info.net || "").indexOf("offline") >= 0 ? "off" : "wifi"
-                readonly property real em: 32 * root.sc                       // simge "yazı boyutu"
-                width: 0.725 * em; height: 0.5453 * em
-                Text {
-                    anchors.centerIn: parent; visible: netIcon.kind === "wired"
-                    text: "\uf796"; color: "white"; font { family: "JetBrainsMono NFM"; pixelSize: netIcon.em }
-                }
-                Image {
-                    anchors.fill: parent; visible: netIcon.kind === "wifi"
-                    source: Qt.resolvedUrl("wifi-on.png"); smooth: true; mipmap: true
-                }
-                Image {
-                    anchors.fill: parent; visible: netIcon.kind === "off"
-                    source: Qt.resolvedUrl("wifi-off.png"); smooth: true; mipmap: true
-                    opacity: 0.6
-                }
-            }
-        }
-
-        // ---- oturum seçim menüsü ----
-        Rectangle {
-            visible: root.menuOpen
-            anchors { right: parent.right; top: parent.top; rightMargin: 16 * root.sc; topMargin: 40 * root.sc }
-            width: menuCol.implicitWidth + 12; height: menuCol.implicitHeight + 12; radius: 14
-            color: Qt.rgba(28 / 255, 32 / 255, 44 / 255, 0.94)
+            // ---- saat ve tarih ----
             Column {
-                id: menuCol; anchors.centerIn: parent
-                Repeater {
-                    model: root.info.sessions
-                    Rectangle {
-                        required property var modelData
-                        width: lbl.implicitWidth + 28; height: lbl.implicitHeight + 12; radius: 9
-                        color: ma.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : "transparent"
-                        Text { id: lbl; anchors.centerIn: parent; text: modelData.name; color: "white"; font { family: "Inter"; pixelSize: 13 * root.sc } }
-                        MouseArea {
-                            id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: { root.session = modelData.id; root.menuOpen = false; field.forceActiveFocus() }
-                        }
-                    }
+                anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 90 * pane.sc }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: root.dateText; font { family: "Inter"; weight: Font.DemiBold; pixelSize: 26 * pane.sc }
+                    color: Qt.rgba(190 / 255, 225 / 255, 1, 0.92)
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: root.clockText; font { family: "Inter"; weight: Font.Bold; pixelSize: 150 * pane.sc }
+                    color: Qt.rgba(190 / 255, 225 / 255, 1, 0.82)
                 }
             }
-        }
 
-        // ---- alt: kullanıcı simgesi, ad, parola alanı ----
-        Column {
-            anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 64 * root.sc }
-            spacing: 8 * root.sc
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: 68 * root.sc; height: width; radius: width / 2
-                color: "#6fd08c"; border { color: Qt.rgba(1, 1, 1, 0.35); width: 2 }
-                Text { anchors.centerIn: parent; text: (root.info.user || "?").charAt(0).toUpperCase(); color: "white"; font { family: "Inter"; weight: Font.DemiBold; pixelSize: 30 * root.sc } }
-            }
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: root.info.user; color: "white"; font { family: "Inter"; weight: Font.DemiBold; pixelSize: 17 * root.sc }
-            }
-            // parola alanı; doğrulama sırasında yerini dönen çark alır
-            Item {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: 230 * root.sc; height: 34 * root.sc
-                Rectangle {
-                    anchors.fill: parent; radius: height / 2; visible: !root.busy
-                    color: Qt.rgba(20 / 255, 40 / 255, 70 / 255, 0.38); border { color: Qt.rgba(1, 1, 1, 0.35); width: 1 }
-                    TextInput {
-                        id: field
-                        anchors { fill: parent; leftMargin: 16; rightMargin: 16 }
-                        verticalAlignment: TextInput.AlignVCenter; horizontalAlignment: TextInput.AlignHCenter
-                        echoMode: TextInput.Password; passwordCharacter: "•"
-                        color: "white"; font { family: "Inter"; pixelSize: 13 * root.sc }
-                        focus: true; enabled: !root.busy
-                        cursorDelegate: Rectangle { width: 1; color: "white" }
-                        onAccepted: root.submit(text)
-                        onTextChanged: if (text !== "") root.wrong = false
-                        Text {
-                            anchors.centerIn: parent; visible: field.text === ""
-                            text: root.wrong ? (root.tr ? "Parola yanlış, tekrar deneyin" : "Incorrect password, try again") : (root.tr ? "Parolayı girin" : "Enter Password")
-                            color: root.wrong ? "#ffd0cc" : "white"; font { family: "Inter"; pixelSize: 13 * root.sc }
+            // ---- sağ üst durum: oturum, klavye, pil, ağ ----
+            Row {
+                anchors { right: parent.right; top: parent.top; rightMargin: 22 * pane.sc; topMargin: 12 * pane.sc }
+                spacing: 14 * pane.sc
+                Text {
+                    text: root.sessionName; color: "white"; font { family: "Inter"; weight: Font.DemiBold; pixelSize: 13 * pane.sc }
+                    anchors.verticalCenter: parent.verticalCenter
+                    MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor; onClicked: root.menuPane = root.menuPane === pane.index ? -1 : pane.index }
+                }
+                Text { text: root.info.layout; color: "white"; font { family: "Inter"; weight: Font.DemiBold; pixelSize: 13 * pane.sc }
+                    anchors.verticalCenter: parent.verticalCenter }
+                // Pil ve ağ simgeleri Canvas ile çizilir (yazı tipi glifleri/sembolik SVG güvenilir değildi)
+                Canvas {
+                    id: batIcon
+                    visible: root.info.battery !== ""
+                    width: 27 * pane.sc; height: 16.2 * pane.sc
+                    anchors.verticalCenter: parent.verticalCenter
+                    property int level: { const m = /battery-level-(\d+)/.exec(root.info.battery || ""); return m ? parseInt(m[1]) : 0 }
+                    property bool charging: (root.info.battery || "").indexOf("charging") >= 0
+                    onLevelChanged: requestPaint(); onChargingChanged: requestPaint(); onWidthChanged: requestPaint()
+                    onPaint: {
+                        const c = getContext("2d"); c.reset(); const u = height / 18
+                        c.strokeStyle = "white"; c.fillStyle = "white"; c.lineWidth = 1.6 * u; c.globalAlpha = 0.9
+                        // gövde + uç
+                        c.beginPath(); c.roundedRect(1 * u, 2 * u, 24 * u, 14 * u, 4 * u, 4 * u); c.stroke()
+                        c.beginPath(); c.roundedRect(26 * u, 6.5 * u, 2.4 * u, 5 * u, 1.2 * u, 1.2 * u); c.fill()
+                        // doluluk
+                        const w = Math.max(2 * u, 19 * u * Math.min(100, level) / 100)
+                        c.globalAlpha = 1; c.beginPath(); c.roundedRect(3.5 * u, 4.5 * u, w, 9 * u, 2 * u, 2 * u); c.fill()
+                        if (charging) {   // şarj şimşeği (koyu zeminli)
+                            c.fillStyle = "#1c2030"; c.beginPath()
+                            c.moveTo(14.5 * u, 3.5 * u); c.lineTo(9 * u, 10.5 * u); c.lineTo(12.5 * u, 10.5 * u); c.lineTo(11 * u, 14.5 * u)
+                            c.lineTo(17 * u, 7.5 * u); c.lineTo(13.5 * u, 7.5 * u); c.closePath(); c.fill()
                         }
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.IBeamCursor; acceptedButtons: Qt.NoButton }
                     }
                 }
-                // macOS tarzı 12 çubuklu çark
+                // Ağ: Wi-Fi bağlı/değil simgeleri aynı Nerd Font glifinden üretilmiş PNG'ler (tools/make-wifi-icons.py): kalınlık ve boyut birebir aynı.
+                // Kablolu bağlantıda glif doğrudan yazı olarak çizilir.
                 Item {
-                    id: spin; visible: root.busy; anchors.centerIn: parent; width: 26 * root.sc; height: width
-                    property int step: 0
-                    Timer { interval: 80; running: root.busy; repeat: true; onTriggered: spin.step = (spin.step + 1) % 12 }
+                    id: netIcon
+                    anchors.verticalCenter: parent.verticalCenter
+                    property string kind: (root.info.net || "").indexOf("wired") >= 0 ? "wired" : (root.info.net || "").indexOf("offline") >= 0 ? "off" : "wifi"
+                    readonly property real em: 32 * pane.sc                       // simge "yazı boyutu"
+                    width: 0.725 * em; height: 0.5453 * em
+                    Text {
+                        anchors.centerIn: parent; visible: netIcon.kind === "wired"
+                        text: "\uf796"; color: "white"; font { family: "JetBrainsMono NFM"; pixelSize: netIcon.em }
+                    }
+                    Image {
+                        anchors.fill: parent; visible: netIcon.kind === "wifi"
+                        source: Qt.resolvedUrl("wifi-on.png"); smooth: true; mipmap: true
+                    }
+                    Image {
+                        anchors.fill: parent; visible: netIcon.kind === "off"
+                        source: Qt.resolvedUrl("wifi-off.png"); smooth: true; mipmap: true
+                        opacity: 0.6
+                    }
+                }
+            }
+
+            // ---- oturum seçim menüsü ----
+            Rectangle {
+                visible: root.menuPane === pane.index
+                anchors { right: parent.right; top: parent.top; rightMargin: 16 * pane.sc; topMargin: 40 * pane.sc }
+                width: menuCol.implicitWidth + 12; height: menuCol.implicitHeight + 12; radius: 14
+                color: Qt.rgba(28 / 255, 32 / 255, 44 / 255, 0.94)
+                Column {
+                    id: menuCol; anchors.centerIn: parent
                     Repeater {
-                        model: 12
+                        model: root.info.sessions
                         Rectangle {
-                            width: 2.4 * root.sc; height: 6 * root.sc; radius: width / 2; color: "white"
-                            x: spin.width / 2 - width / 2; y: 0
-                            transform: Rotation { origin.x: width / 2; origin.y: spin.height / 2; angle: index * 30 }
-                            opacity: Math.max(0.2, 1 - ((spin.step - index + 12) % 12) / 8)
+                            required property var modelData
+                            width: lbl.implicitWidth + 28; height: lbl.implicitHeight + 12; radius: 9
+                            color: ma.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : "transparent"
+                            Text { id: lbl; anchors.centerIn: parent; text: modelData.name; color: "white"; font { family: "Inter"; pixelSize: 13 * pane.sc } }
+                            MouseArea {
+                                id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: { root.session = modelData.id; root.menuPane = -1; field.forceActiveFocus() }
+                            }
                         }
                     }
                 }
             }
-        }
+
+            // ---- alt: kullanıcı simgesi, ad, parola alanı ----
+            Column {
+                anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 64 * pane.sc }
+                spacing: 8 * pane.sc
+                Rectangle {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 68 * pane.sc; height: width; radius: width / 2
+                    color: "#6fd08c"; border { color: Qt.rgba(1, 1, 1, 0.35); width: 2 }
+                    Text { anchors.centerIn: parent; text: (root.info.user || "?").charAt(0).toUpperCase(); color: "white"; font { family: "Inter"; weight: Font.DemiBold; pixelSize: 30 * pane.sc } }
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: root.info.user; color: "white"; font { family: "Inter"; weight: Font.DemiBold; pixelSize: 17 * pane.sc }
+                }
+                // parola alanı; doğrulama sırasında yerini dönen çark alır
+                Item {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 230 * pane.sc; height: 34 * pane.sc
+                    Rectangle {
+                        anchors.fill: parent; radius: height / 2; visible: !root.busy
+                        color: Qt.rgba(20 / 255, 40 / 255, 70 / 255, 0.38); border { color: Qt.rgba(1, 1, 1, 0.35); width: 1 }
+                        TextInput {
+                            id: field
+                            anchors { fill: parent; leftMargin: 16; rightMargin: 16 }
+                            verticalAlignment: TextInput.AlignVCenter; horizontalAlignment: TextInput.AlignHCenter
+                            echoMode: TextInput.Password; passwordCharacter: "•"
+                            color: "white"; font { family: "Inter"; pixelSize: 13 * pane.sc }
+                            focus: true; enabled: !root.busy
+                            cursorDelegate: Rectangle { width: 1; color: "white" }
+                            onAccepted: root.submit(text)
+                            onTextChanged: if (text !== "") root.wrong = false
+                            // ortak parola: yazılan metin diğer ekranlardaki alanlara da yansır
+                            onTextEdited: root.pw = text
+                            Component.onCompleted: { text = root.pw; if (pane.index === 0) forceActiveFocus() }
+                            Connections {
+                                target: root
+                                function onPwChanged() { if (field.text !== root.pw) field.text = root.pw }
+                                function onRefocus() { if (pane.index === 0) field.forceActiveFocus() }
+                            }
+                            Text {
+                                anchors.centerIn: parent; visible: field.text === ""
+                                text: root.wrong ? (root.tr ? "Parola yanlış, tekrar deneyin" : "Incorrect password, try again") : (root.tr ? "Parolayı girin" : "Enter Password")
+                                color: root.wrong ? "#ffd0cc" : "white"; font { family: "Inter"; pixelSize: 13 * pane.sc }
+                            }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.IBeamCursor; acceptedButtons: Qt.NoButton }
+                        }
+                    }
+                    // macOS tarzı 12 çubuklu çark
+                    Item {
+                        id: spin; visible: root.busy; anchors.centerIn: parent; width: 26 * pane.sc; height: width
+                        property int step: 0
+                        Timer { interval: 80; running: root.busy; repeat: true; onTriggered: spin.step = (spin.step + 1) % 12 }
+                        Repeater {
+                            model: 12
+                            Rectangle {
+                                width: 2.4 * pane.sc; height: 6 * pane.sc; radius: width / 2; color: "white"
+                                x: spin.width / 2 - width / 2; y: 0
+                                transform: Rotation { origin.x: width / 2; origin.y: spin.height / 2; angle: index * 30 }
+                                opacity: Math.max(0.2, 1 - ((spin.step - index + 12) % 12) / 8)
+                            }
+                        }
+                    }
+                }
+            }
+                }
+            }
         }
         // Şifre kabul edilince giriş ekranı bu örtüyle siyaha solar
         Rectangle {
@@ -263,7 +298,7 @@ ShellRoot {
             anchors.fill: parent; color: "black"; opacity: 0
             Behavior on opacity { NumberAnimation { duration: 380; easing.type: Easing.InOutQuad } }
         }
-        Component.onCompleted: { field.forceActiveFocus(); if (Quickshell.env("TAHOE_AUTOTEST") === "1") autotest.start() }
+        Component.onCompleted: if (Quickshell.env("TAHOE_AUTOTEST") === "1") autotest.start()
         // yalnızca deneme: parolayı kendisi girer (TAHOE_AUTOTEST=1)
         Timer { id: autotest; interval: 1500; onTriggered: root.submit("pass") }
     }

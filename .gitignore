@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 *.bak
 .firstrun-done
+.playwright-mcp/
