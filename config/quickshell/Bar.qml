@@ -71,11 +71,11 @@ PanelWindow {
         { label: "Zorla Çık…", shortcut: "⌥⌘ Esc", cmd: "tahoe-forcequit" },
         { sep: true },
         { label: "Uyku", cmd: "hyprlock & sleep 0.6; systemctl suspend" },
-        { label: "Yeniden Başlat", cmd: "systemctl reboot" },
-        { label: "Kapat", cmd: "systemctl poweroff" },
+        { label: "Yeniden Başlat…", cmd: "tahoe-power restart" },
+        { label: "Kapat…", cmd: "tahoe-power shutdown" },
         { sep: true },
         { label: "Ekranı Kilitle", shortcut: "⌃⌘ Q", cmd: "pidof hyprlock || hyprlock" },
-        { label: "Oturumu Kapat " + user, shortcut: "⇧⌘ E", cmd: "tahoe-logout" }
+        { label: "Oturumu Kapat " + user + "…", shortcut: "⇧⌘ E", cmd: "tahoe-power logout" }
     ]
     readonly property var appItems: {
         const n = Sys.appName, a = Sys.activeAddress, has = a !== ""

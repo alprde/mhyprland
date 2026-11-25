@@ -9,4 +9,5 @@ ShellRoot {
     HotCorners {}
     OSD {}
     Splash {}
+    PowerDialog {}
 }

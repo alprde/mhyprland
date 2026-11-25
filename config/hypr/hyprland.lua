@@ -26,6 +26,7 @@ hl.on("hyprland.start", function()
   hl.exec_cmd(P .. "tahoe-dock")
   hl.exec_cmd("systemctl --user start hyprpolkitagent")
   hl.exec_cmd(P .. "tahoe-firstrun")
+  hl.exec_cmd(P .. "tahoe-resume restore")   -- "pencereleri yeniden aç" işaretlendiyse önceki uygulamalar
 end)
 
 hl.config({
@@ -97,7 +98,7 @@ hl.bind(mod .. " + F",      hl.dsp.window.fullscreen())
 hl.bind(mod .. " + M",      hl.dsp.window.move({ workspace = "special:minimized" }))   -- küçült
 hl.bind(mod .. " + SHIFT + M", hl.dsp.workspace.toggle_special("minimized"))        -- küçültülenleri göster/gizle
 hl.bind(mod .. " + Q",      hl.dsp.window.close())
-hl.bind(mod .. " + SHIFT + E", hl.dsp.exec_cmd(P .. "tahoe-logout"))
+hl.bind(mod .. " + SHIFT + E", hl.dsp.exec_cmd(P .. "tahoe-power logout"))
 hl.bind(mod .. " + V",      hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + J",      hl.dsp.layout("togglesplit"))
 hl.bind("Print", hl.dsp.exec_cmd(P .. "tahoe-shot-save region"))   -- Print: alan seç → dosya + pano

@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""macOS'taki "pencereleri yeniden aç": açık uygulamaları kaydeder, bir sonraki girişte aynı masaüstlerinde yeniden açar.
+
+  tahoe-resume save      açık pencereleri kaydet (yeniden başlat/kapat/çıkış öncesi)
+  tahoe-resume clear     kaydı sil (kutu işaretsizse)
+  tahoe-resume restore   kayıtlı uygulamaları aç (Hyprland açılışında bir kez); kayıt kullanılınca silinir
+  --dry-run              hiçbir şey açmadan/yazmadan ne yapılacağını yazar
+
+Yalnızca UYGULAMALAR ve bulundukları masaüstü geri gelir; uygulamanın içeriği (sekmeler, belgeler) uygulamanın kendi
+oturum özelliğine bağlıdır. Terminal için kabuğun bulunduğu klasör korunur, içinde çalışan komutlar yeniden başlatılmaz."""
+import configparser, glob, json, os, shlex, subprocess, sys, time
+
+HOME = os.path.expanduser('~')
+CFG = os.path.join(os.environ.get('XDG_CONFIG_HOME') or f'{HOME}/.config', 'tahoe')
+FILE = os.path.join(CFG, 'resume.json')
+TERMINALS = {'kitty': '--directory', 'alacritty': '--working-directory', 'foot': '--working-directory='}
+DRY = '--dry-run' in sys.argv
+
+
+def hypr(what):
+    return json.loads(subprocess.check_output(['hyprctl', what, '-j']))
+
+
+def read(path):
+    try:
+        with open(path, 'rb') as f: return f.read()
+    except OSError:
+        return b''
+
+
+def desktop_files():
+    """Uygulama başlatıcıları: [(yol, dosya adı, StartupWMClass)] — önce kullanıcınınkiler."""
+    dirs = [os.environ.get('XDG_DATA_HOME') or f'{HOME}/.local/share', f'{HOME}/.local/share/flatpak/exports/share',
+            '/var/lib/flatpak/exports/share', '/usr/local/share', '/usr/share']
+    out = []
+    for d in dirs:
+        for path in sorted(glob.glob(f'{d}/applications/**/*.desktop', recursive=True)):
+            cp = configparser.ConfigParser(interpolation=None, strict=False)
+            try:
+                cp.read(path, encoding='utf-8')
+                entry = cp['Desktop Entry']
+            except Exception:
+                continue
+            if entry.get('Type', 'Application') != 'Application' or not entry.get('Exec'): continue
+            out.append((path, os.path.basename(path)[:-8].lower(), entry.get('StartupWMClass', '').lower()))
+    return out
+
+
+def find_desktop(cls, apps):
+    c = cls.lower()
+    for test in (lambda stem, wm: wm == c, lambda stem, wm: stem == c, lambda stem, wm: stem.split('.')[-1] == c):
+        for path, stem, wm in apps:
+            if test(stem, wm): return path
+    return None
+
+
+def shell_cwd(pid):
+    """Terminalin ilk alt sürecinin (kabuk) çalışma klasörü."""
+    for kid in read(f'/proc/{pid}/task/{pid}/children').split():
+        try: return os.readlink(f'/proc/{int(kid)}/cwd')
+        except OSError: pass
+    return None
+
+
+def command(client, apps):
+    cls, pid = client['class'], client['pid']
+    base = cls.lower()
+    if base in TERMINALS:
+        cwd, flag = shell_cwd(pid), TERMINALS[base]
+        if cwd and os.path.isdir(cwd):
+            return [base, flag + cwd] if flag.endswith('=') else [base, flag, cwd]
+        return [base]
+    path = find_desktop(cls, apps)
+    if path: return ['gio', 'launch', path]
+    return [a.decode(errors='replace') for a in read(f'/proc/{pid}/cmdline').split(b'\0') if a]      # son çare
+
+
+def collect():
+    apps, seen, entries = desktop_files(), set(), []
+    for c in sorted(hypr('clients'), key=lambda c: (c['workspace']['id'], c['at'])):
+        if not c.get('mapped') or not c.get('class') or c['workspace']['id'] == -1: continue
+        cmd = command(c, apps)
+        if not cmd: continue
+        ws = c['workspace']
+        # özel masaüstleri (küçültülen/gizlenen pencereler) adıyla, diğerleri numarasıyla
+        target = ws['name'] if ws['id'] < 0 else ws['id']
+        # aynı sürecin birden çok penceresi (tarayıcı, kod düzenleyici): bir kez başlatılır, pencerelerini kendisi açar
+        entries.append({'class': c['class'], 'workspace': target, 'cmd': cmd, 'launch': c['pid'] not in seen})
+        seen.add(c['pid'])
+    return entries
+
+
+def save():
+    entries = collect()
+    if DRY:
+        for e in entries: print(e['workspace'], e['class'], 'BAŞLAT' if e['launch'] else 'pencere', shlex.join(e['cmd']))
+        return
+    os.makedirs(CFG, exist_ok=True)
+    fd = os.open(FILE + '.tmp', os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'w') as f: json.dump(entries, f, indent=1)
+    os.replace(FILE + '.tmp', FILE)
+
+
+def clear():
+    try: os.remove(FILE)
+    except OSError: pass
+
+
+def move(address, workspace):
+    ws = json.dumps(workspace) if isinstance(workspace, str) else int(workspace)
+    subprocess.run(['hyprctl', 'dispatch', f'hl.dsp.window.move({{ workspace = {ws}, follow = false, window = "address:{address}" }})'],
+                   stdout=subprocess.DEVNULL, check=False)
+
+
+def restore():
+    try:
+        with open(FILE) as f: entries = json.load(f)
+    except (OSError, ValueError):
+        return
+    if not DRY:
+        clear()                  # bir kez kullanılır: sonraki girişte (çökme vb.) aynı uygulamalar tekrar açılmasın
+        time.sleep(3)            # çubuk, duvar kâğıdı ve masaüstleri hazır olsun
+    known = {c['address'] for c in hypr('clients')}
+    for e in entries:
+        if not e.get('launch'): continue
+        if DRY: print('başlatılacak:', shlex.join(e['cmd']), '→ masaüstü', e['workspace']); continue
+        try:
+            subprocess.Popen(e['cmd'], cwd=HOME, start_new_session=True, stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as err:
+            print(f"tahoe-resume: {e['class']} açılamadı: {err}", file=sys.stderr)
+    if DRY: return
+    # açılan pencereleri sınıf adına göre kayıtlı masaüstlerine yerleştir (yavaş uygulamalar için 45 sn beklenir)
+    pending, deadline = list(entries), time.time() + 45
+    while pending and time.time() < deadline:
+        time.sleep(0.3)
+        for c in hypr('clients'):
+            if c['address'] in known or not c.get('mapped') or not c.get('class'): continue
+            known.add(c['address'])
+            match = next((e for e in pending if e['class'] == c['class']), None)
+            if match:
+                pending.remove(match)
+                if c['workspace']['id'] != match['workspace']: move(c['address'], match['workspace'])
+
+
+if __name__ == '__main__':
+    action = next((a for a in sys.argv[1:] if not a.startswith('-')), '')
+    {'save': save, 'clear': clear, 'restore': restore}.get(action, lambda: sys.exit(__doc__))()

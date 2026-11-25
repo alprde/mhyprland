@@ -1,0 +1,10 @@
+#!/bin/sh
+# Yeniden başlat / kapat / oturumu kapat: macOS tarzı onay penceresini açar (PowerDialog.qml).
+# Quickshell çalışmıyorsa eylem doğrudan yapılır.   Kullanım: tahoe-power restart|shutdown|logout
+case "$1" in restart|shutdown|logout) ;; *) echo "kullanım: tahoe-power restart|shutdown|logout" >&2; exit 2 ;; esac
+qs -c tahoe ipc call power ask "$1" >/dev/null 2>&1 && exit 0
+case "$1" in
+  restart) exec systemctl reboot ;;
+  shutdown) exec systemctl poweroff ;;
+  logout) exec tahoe-logout ;;
+esac

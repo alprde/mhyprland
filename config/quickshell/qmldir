@@ -8,3 +8,4 @@ BatteryIcon 1.0 BatteryIcon.qml
 HotCorners 1.0 HotCorners.qml
 OSD 1.0 OSD.qml
 Splash 1.0 Splash.qml
+PowerDialog 1.0 PowerDialog.qml

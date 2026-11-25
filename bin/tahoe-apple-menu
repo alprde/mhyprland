@@ -30,8 +30,8 @@ case "$choice" in
   "Son Kullanılan Öğeler") exec tahoe-recent ;;
   "Zorla Çık…") exec tahoe-forcequit ;;
   "Uyku") hyprlock & sleep 0.6; exec systemctl suspend ;;
-  "Yeniden Başlat") exec systemctl reboot ;;
-  "Kapat") exec systemctl poweroff ;;
+  "Yeniden Başlat") exec tahoe-power restart ;;
+  "Kapat") exec tahoe-power shutdown ;;
   "Ekranı Kilitle") exec hyprlock ;;
-  "Oturumu Kapat"*) exec tahoe-logout ;;
+  "Oturumu Kapat"*) exec tahoe-power logout ;;
 esac
